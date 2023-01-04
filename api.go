@@ -255,4 +255,3 @@ func (bind *Api[T]) DelLoc(id string) (*ApiRet, error) {
 	defer resp.Body.Close()
 	return bind.ToRet(resp)
 }
-func XX() {}
