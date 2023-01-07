@@ -2,10 +2,12 @@ package main
 
 import (
 	"net/http"
+	"reflect"
 )
 
 type ApiRet struct {
-	Body string
-	Api  string
-	Resp *http.Response
+	Body   string
+	Method string
+	Args   []reflect.Value
+	Resp   *http.Response
 }

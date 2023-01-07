@@ -8,7 +8,9 @@ import (
 	"io"
 	"net"
 	"os"
+	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -42,12 +44,27 @@ import (
 var adminApi = NewAdminApi()
 
 func assertOk(ret *ApiRet, err error) {
+	ret, err = RetryIfNotSignIn(ret, err)
 	So(err, ShouldBeNil)
 	SoMsg(gjson.Get(ret.Body, "msg").String(), gjson.Get(ret.Body, "code").Int(), ShouldNotBeZeroValue)
 }
 func assertHasOne(ret *ApiRet, err error) {
+	ret, err = RetryIfNotSignIn(ret, err)
 	So(err, ShouldBeNil)
 	SoMsg("没有找到任何记录", gjson.Get(ret.Body, "total").Int(), ShouldBeGreaterThan, 0)
+}
+func RetryIfNotSignIn(ret *ApiRet, err error) (*ApiRet, error) {
+	if err != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
+		pp("登录")
+		ret2, err2 := adminApi.SignIn("chenwh", "!chen83312")
+		So(err2, ShouldBeNil)
+		SoMsg(gjson.Get(ret2.Body, "msg").String(), gjson.Get(ret2.Body, "code").Int(), ShouldNotBeZeroValue)
+		pp("再次请求")
+		callResult := reflect.ValueOf(adminApi).MethodByName(ret.Method).Call(ret.Args)
+		ret = callResult[0].Interface().(*ApiRet)
+		err, _ = callResult[1].Interface().(error)
+	}
+	return ret, err
 }
 func pp(items ...interface{}) (written int, err error) {
 	Println()
@@ -84,10 +101,10 @@ func (bind *CreateDevice) Run(t *testing.T) {
 	Convey("获取一台新设备", t, func() {
 	Retry:
 		file, err := os.OpenFile("./data/device_id", os.O_RDWR|os.O_CREATE, os.ModePerm)
+		defer file.Close()
 		if err != nil {
 			panic(err)
 		}
-		defer file.Close()
 		content, err := io.ReadAll(file)
 		if err != nil {
 			panic(err)
@@ -244,4 +261,39 @@ func (bind *CreateInstallation) Run(t *testing.T) {
 }
 func TestCreateInstallation(t *testing.T) {
 	(&CreateInstallation{}).Run(t)
+}
+
+type CreateWeaningApplication struct {
+	CreateInstallation
+	weaningApplication gjson.Result
+}
+
+func (bind *CreateWeaningApplication) Run(t *testing.T) {
+	bind.CreateInstallation.Run(t)
+	Convey("撤机申请", t, func() {
+		assertOk(adminApi.CreateWeaningApplication(bind.applySn, bind.deviceId))
+		pp("查询")
+		ret, err := adminApi.GetWeaningApplicationList(fmt.Sprintf(`{"device_id": "%v"}`, bind.deviceId))
+		assertHasOne(ret, err)
+		bind.weaningApplication = gjson.Get(ret.Body, "rows.0")
+		pp("审批")
+		assertOk(adminApi.ApproveWeaningApplication(bind.weaningApplication.Get("id").String()))
+	})
+}
+func TestCreateWeaningApplication(t *testing.T) {
+	(&CreateWeaningApplication{}).Run(t)
+}
+
+type CreateWeaningReg struct {
+	CreateWeaningApplication
+}
+
+func (bind *CreateWeaningReg) Run(t *testing.T) {
+	bind.CreateWeaningApplication.Run(t)
+	Convey("撤机登记", t, func() {
+		assertOk(adminApi.CreateWeaningReg(bind.weaningApplication.Get("original_apply_sn").String(), bind.weaningApplication.Get("device_id").String()))
+	})
+}
+func TestCreateWeaningReg(t *testing.T) {
+	(&CreateWeaningReg{}).Run(t)
 }

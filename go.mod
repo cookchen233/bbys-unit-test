@@ -13,12 +13,12 @@ require (
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/tidwall/gjson v1.14.4
 	github.com/xuri/excelize/v2 v2.6.1
-	golang.org/x/exp v0.0.0-20221230185412-738e83a70c30
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
 require (
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
+	github.com/gookit/color v1.5.2 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
@@ -29,14 +29,14 @@ require (
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	github.com/xuri/efp v0.0.0-20220603152613-6918739fd470 // indirect
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/term v0.1.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
-	golang.org/x/tools v0.2.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
