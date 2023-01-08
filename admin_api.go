@@ -5,14 +5,25 @@ import (
 	"fmt"
 	logrusStack "github.com/Gurpartap/logrus-stack"
 	"github.com/gookit/goutil"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
 	"time"
 )
+
+type AdminDataError struct {
+	message string
+}
+
+func (bind *AdminDataError) Error() string {
+	return bind.message
+}
 
 func init() {
 	log.SetLevel(log.DebugLevel)
@@ -24,15 +35,19 @@ func init() {
 	stackLevels := []log.Level{log.PanicLevel, log.FatalLevel, log.ErrorLevel}
 	log.AddHook(logrusStack.NewHook(callerLevels, stackLevels))
 	log.AddHook(RotateLogHook("log", "stdout.log", 7*24*time.Hour, 24*time.Hour))
+	log.SetOutput(io.Discard)
 }
 
+// AdminApi 后台接口
 type AdminApi[T any] struct {
 	apiClient *ApiClient
+	baseUrl   string
 }
 
 func NewAdminApi() *AdminApi[any] {
 	return &AdminApi[any]{
 		apiClient: NewApiClient(),
+		baseUrl:   os.Getenv("BASE_URL"),
 	}
 }
 
@@ -52,14 +67,21 @@ func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRe
 
 	var data map[string]interface{}
 	err := json.Unmarshal(body, &data)
-	if err != nil {
+	_, ex := data["code"]
+	_, ex2 := data["total"]
+	if err != nil || (!ex && !ex2) {
+		if err != nil {
+			err = errors.WithStack(&AdminDataError{"解析json数据时发生错误 " + err.Error()})
+		} else {
+			err = errors.WithStack(&AdminDataError{"无效数据"})
+		}
 		var logContent = []string{
-			"解析相应数据为Json格式时出错",
 			err.Error(),
 			ret.Method,
 			goutil.String(ret.Args),
 		}
 		var logContent2 []string
+		// 重定向历史请求
 		for resp != nil {
 			var reqBody []byte
 			if resp.Request.Method == "POST" {
@@ -70,38 +92,39 @@ func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRe
 					return b, e2
 				}()
 				if e != nil {
-					return nil, e
+					return nil, errors.WithStack(e)
 				}
 			}
 			logContent2 = append(
 				[]string{
 					resp.Request.Method + " " + resp.Status + " " + resp.Request.URL.String(),
-					"reqBody:" + goutil.String(len(reqBody)),
+					"reqBody:" + string(reqBody),
 					"respBody:" + string(body),
 				}, logContent2...)
 			resp = resp.Request.Response
 		}
-		log.Trace(strings.Join(append(logContent, logContent2...), "\n"))
+		log.Error(strings.Join(append(logContent, logContent2...), "\n"))
 
 	}
-	return &ret, err
+	return &ret, errors.WithStack(err)
 }
 
 /*
 SignIn
 登录
+@param username 用户名
+@param password 密码
 */
 func (bind *AdminApi[T]) SignIn(username string, password string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"username": username,
 		"password": password,
 	}
-	urlStr := "http://loc.bbys.cn/mobile/admin/login.html?url=/admin/qrcode_process/lists.html?admin_nav=qrcode_process_lists"
-	resp, err := bind.apiClient.Post(urlStr, params)
+	resp, err := bind.apiClient.Post(os.Getenv("SIGN_IN_URL"), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, username, password)
 }
 
 /*
@@ -114,17 +137,16 @@ func (bind *AdminApi[T]) CreateDevice(deviceId string, accessCode string) (*ApiR
 	params := map[string]interface{}{
 		"device_code": accessCode,
 		"device_id":   deviceId,
-		//"partner_id":  "2BCFA72F-A91C-0E5C-0AFF-33BCB318CC60",
-		"partner_id": "161AF9E7-F57A-9596-81AD-351677DC4203",
-		"model":      "A18S",
-		"id":         "8",
-		"_ajax":      "1",
+		"partner_id":  os.Getenv("PARTNER_ID"),
+		"model":       "A18S",
+		"id":          "8",
+		"_ajax":       "1",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/terminal_device/initDevice%v", ""), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_device/initDevice%v", ""), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, deviceId, accessCode)
 }
 
 /*
@@ -137,11 +159,11 @@ func (bind *AdminApi[T]) UpDeviceStatus(deviceId string) (*ApiRet, error) {
 		"ids":    deviceId,
 		"params": "status=2",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/terminal_device/multi/ids/%v", deviceId), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_device/multi/ids/%v", deviceId), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, deviceId)
 }
 
 /*
@@ -151,14 +173,13 @@ CreateLocation
 */
 func (bind *AdminApi[T]) CreateLocation(name string) (*ApiRet, error) {
 	params := map[string]interface{}{
-		//"row[partner_id]": "2BCFA72F-A91C-0E5C-0AFF-33BCB318CC60",
-		"row[partner_id]": "161AF9E7-F57A-9596-81AD-351677DC4203",
-		"row[name]":       "贵阳市花溪区",
+		"row[partner_id]": os.Getenv("PARTNER_ID"),
+		"row[name]":       name,
 		"row[scene_picture][][file]": []string{
-			"https://02a-certf05.bbys.cn/FS/Down/?id=56e1da4a40e3483d8c9e341a21df20fd",
-			"https://02a-certf05.bbys.cn/FS/Down/?id=87b5696e5fb1452ca620b810ab109d3b",
-			"https://02a-certf05.bbys.cn/FS/Down/?id=bf944062fadf49228a9c8a73b20fffa6",
-			"https://02a-certf05.bbys.cn/FS/Down/?id=c82a5a7157ee4620bebd327b64fbc408",
+			"https://i.328888.xyz/2023/01/08/kKzKA.th.png",
+			"https://i.328888.xyz/2023/01/08/kKFDo.th.png",
+			"https://i.328888.xyz/2023/01/08/kKG3N.th.png",
+			"https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		},
 		"row[province]":             "10543",
 		"row[city]":                 "10544",
@@ -173,26 +194,23 @@ func (bind *AdminApi[T]) CreateLocation(name string) (*ApiRet, error) {
 		"row[village_name]":         "耶鲁烧烤",
 		"row[occupancy_rate]":       "33.04",
 		"row[property_company]":     "耶鲁物业",
-		"row[property_tel]":         "13883036130",
+		"row[property_tel]":         "13888888888",
 		"row[remarks]":              "测试添加",
-		"row[developer]":            "陈文豪",
-		"row[responsible_person]":   "陈文豪",
+		"row[developer]":            "Chen",
+		"row[responsible_person]":   "Chen",
 		"row[rental_price]":         "21.97",
 		"row[is_electricity]":       "0",
 		"row[electricity]":          "800",
-		"row[contract_start_time]":  "2022-12-05",
-		"row[contract_end_time]":    "2023-12-28",
-		"row[contract_doc]":         "https://oss-fs.bbys.cn/admin/20221111/项目计划书.pdf",
-		"row[expect_time]":          "2022-12-05",
+		"row[contract_start_time]":  time.Now().Format("2006-01-02"),
+		"row[contract_end_time]":    time.Now().AddDate(1, 0, 0).Format("2006-01-02"),
+		"row[expect_time]":          time.Now().Format("2006-01-02"),
+		"row[contract_doc]":         "https://jwc.xaut.edu.cn/__local/4/23/46/9AC912EFF27555E7779B76CFD01_85B2E41D_57F90.pdf",
 		"row[contract_no]":          "123456",
 		"row[copy_add]":             "0",
 	}
-	params["row[name]"] = name
-	params["row[contract_start_time]"] = time.Now().Format("2006-01-02")
-	params["row[contract_end_time]"] = time.Now().AddDate(1, 0, 0).Format("2006-01-02")
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_location_reg/add?dialog=1%v", ""), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/add?dialog=1%v", ""), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	return bind.toRet(resp, name)
 }
@@ -206,11 +224,11 @@ func (bind *AdminApi[T]) GetLocList(filter string) (*ApiRet, error) {
 	params := map[string]string{
 		"filter": filter,
 	}
-	resp, err := bind.apiClient.Get("http://loc.bbys.cn/admin/device_location_reg/index?admin_nav=10&sort=id&order=desc&offset=0&limit=10&op=%7B%22name%22%3A%22LIKE%22%7D", params)
+	resp, err := bind.apiClient.Get(bind.baseUrl+"device_location_reg/index?admin_nav=10&sort=id&order=desc&offset=0&limit=10&op=%7B%22name%22%3A%22LIKE%22%7D", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, filter)
 }
 
 /*
@@ -222,11 +240,11 @@ ApproveLocation
 		"ids":    id,
 		"params": "check_status=1",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_location_reg/multi%v", ""), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/multi%v", ""), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -238,11 +256,11 @@ DeleteLocation
 		"ids":    id,
 		"action": "del",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_location_reg/del/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/del/ids/%v", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -253,13 +271,13 @@ SetInstallTime
 	params := map[string]interface{}{
 		"row[id]":                     id,
 		"row[estimated_install_time]": time.Now().Format("2006-01-02"),
-		"row[install_user]":           "陈文豪",
+		"row[install_user]":           "Chen",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_location_reg_estimated_install/updateinstall/ids/%v?dialog=1", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg_estimated_install/updateinstall/ids/%v?dialog=1", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -268,16 +286,16 @@ CreateExwarehouse
 @param applySn 点位号
 */func (bind *AdminApi[T]) CreateExwarehouse(applySn string) (*ApiRet, error) {
 	params := map[string]interface{}{
-		"row[consignee]":        "陈文豪",
+		"row[consignee]":        "Chen",
 		"row[consignee_time]":   time.Now().Format("2006-01-02"),
 		"row[exwarehouse_type]": 2,
 		"row[remark]":           "测试添加",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_location_reg_estimated_install/exwarehouse/apply_sn/%v?dialog=1", applySn), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg_estimated_install/exwarehouse/apply_sn/%v?dialog=1", applySn), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, applySn)
 }
 
 /*
@@ -289,11 +307,11 @@ func (bind *AdminApi[T]) GetExwarehouseList(filter string) (*ApiRet, error) {
 	params := map[string]string{
 		"filter": filter,
 	}
-	resp, err := bind.apiClient.Get("http://loc.bbys.cn/admin/device_location_reg_estimated_install/index/", params)
+	resp, err := bind.apiClient.Get(bind.baseUrl+"device_location_reg_estimated_install/index/", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, filter)
 }
 
 /*
@@ -305,11 +323,11 @@ ApproveExwarehouse
 		"ids":    id,
 		"params": "audit_status=1",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/exwarehouse/multi/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -318,16 +336,16 @@ ExwarehouseNotice
 @param id 出库id
 */func (bind *AdminApi[T]) ExwarehouseNotice(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
-		"row[message]":                  "陈文豪",
+		"row[message]":                  "Chen",
 		"row[consignee_time]":           time.Now().Format("2006-01-02"),
 		"row[exwarehouse_logistics_id]": 2,
 		"row[sum]":                      1,
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/exwarehouse_notice/add?warehouse_id=%v&dialog=1", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_notice/add?warehouse_id=%v&dialog=1", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -340,11 +358,11 @@ CreateExwarehouseDevice
 		"row[device_id]":        deviceId,
 		"row[exwarehouse_time]": time.Now().Format("2006-01-02"),
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/Exwarehouse_device/add.html?warehouse_id=%v&dialog=1", exwareHouseId), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"Exwarehouse_device/add.html?warehouse_id=%v&dialog=1", exwareHouseId), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, exwareHouseId, deviceId)
 }
 
 /*
@@ -357,15 +375,15 @@ CreateExwarehouseArrive
 		"row[logistics_status]": 1,
 		"row[cost]":             "1.00",
 		"row[arrive_remark]":    "测试添加",
-		"row[images]":           "https://oss-fs.bbys.cn/admin/20221208/5f35494f2e96a.jpg,https://oss-fs.bbys.cn/admin/20221208/119f7f7cf0f30f612f36e6431768e191.png,https://oss-fs.bbys.cn/admin/20221208/aa61877ea09a02eca3d26c7c1a238a76.png,https://oss-fs.bbys.cn/admin/20221208/aa61877ea09a02eca3d26c7c1a238a77.jpeg",
+		"row[images]":           "https://i.328888.xyz/2023/01/08/kKzKA.th.png,https://i.328888.xyz/2023/01/08/kKFDo.th.png,https://i.328888.xyz/2023/01/08/kKG3N.th.png,https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		"row[device_id]":        deviceId,
 		"row[arrive_date]":      time.Now().Format("2006-01-02"),
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/exwarehouse_arrive/edit?apply_sn=%v&dialog=1", applySn), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/edit?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, applySn, deviceId)
 }
 
 /*
@@ -377,11 +395,11 @@ func (bind *AdminApi[T]) GetExwarehouseArriveList(filter string) (*ApiRet, error
 	params := map[string]string{
 		"filter": filter,
 	}
-	resp, err := bind.apiClient.Get("http://loc.bbys.cn/admin/exwarehouse_arrive/index/", params)
+	resp, err := bind.apiClient.Get(bind.baseUrl+"exwarehouse_arrive/index/", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, filter)
 }
 
 /*
@@ -393,11 +411,11 @@ ApproveExwarehouseArrive
 		"ids":    id,
 		"params": "approve_status=1",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/exwarehouse_arrive/multi/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -413,14 +431,14 @@ CreateArrivedStatement
 		"row[arrived_num]":              1,
 		"row[total_cost]":               1,
 		"row[average_cost]":             1,
-		"row[applicant]":                "陈文豪",
+		"row[applicant]":                "Chen",
 		"row[remarks]":                  "测试添加",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/logistics_arrived_statement/add/arrive_id/%v?dialog=1", arriveId), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"logistics_arrived_statement/add/arrive_id/%v?dialog=1", arriveId), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, arriveId)
 }
 
 /*
@@ -435,16 +453,16 @@ CreateInstallation
 		"row[map_zoom]":                   18,
 		"row[map_center]":                 "",
 		"row[coordinates]":                "22.54845664,114.06455184",
-		"row[scene_picture][0][file]":     "https://oss-fs.bbys.cn/admin/20221208/b1286f27ae7a4aa48b0e977af698eee4.jpg",
-		"row[scene_picture][1][file]":     "https://oss-fs.bbys.cn/admin/20221208/f46d93f4e7fc460fa57f3b824b49b1d9.jpg",
-		"row[scene_picture][2][file]":     "https://oss-fs.bbys.cn/admin/20221208/6e658e0607894966b592fa46a4cfcabe.jpg",
-		"row[scene_picture][3][file]":     "https://oss-fs.bbys.cn/admin/20221208/31be3bd1f5e145398001f127c2eb20ce.jpg",
+		"row[scene_picture][0][file]":     "https://i.328888.xyz/2023/01/08/kKzKA.th.png",
+		"row[scene_picture][1][file]":     "https://i.328888.xyz/2023/01/08/kKFDo.th.png",
+		"row[scene_picture][2][file]":     "https://i.328888.xyz/2023/01/08/kKG3N.th.png",
+		"row[scene_picture][3][file]":     "https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		"row[status]":                     2,
 		"row[complete_time]":              time.Now().Format("2006-01-02 15:04:05"),
 		"row[power_number]":               666,
-		"row[power_picture]":              "https://02a-certf05.bbys.cn/FS/Down/?id=004219c2685446aa8c1f7fa9207aeb48",
-		"row[installor]":                  "陈文豪",
-		"row[install_pic_list]":           "https://02a-certf05.bbys.cn/FS/Down/?id=314d8d2023b94e1884a4f5c250e82018",
+		"row[power_picture]":              "https://i.328888.xyz/2023/01/08/kL4RH.th.jpeg",
+		"row[installor]":                  "Chen",
+		"row[install_pic_list]":           "https://i.328888.xyz/2023/01/08/kKzKA.th.png",
 		"row[cost_details][0][name]":      "接电",
 		"row[cost_details][0][value]":     1,
 		"row[cost_details][1][name]":      "地坪",
@@ -457,11 +475,11 @@ CreateInstallation
 		"row[move_device_application_id]": 0,
 		"row[remarks]":                    "测试添加",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_install_reg/add/apply_sn/%v?dialog=1", applySn), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_install_reg/add/apply_sn/%v?dialog=1", applySn), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, applySn, deviceId)
 }
 
 /*
@@ -473,11 +491,11 @@ func (bind *AdminApi[T]) GetInstallationList(filter string) (*ApiRet, error) {
 	params := map[string]string{
 		"filter": filter,
 	}
-	resp, err := bind.apiClient.Get("http://loc.bbys.cn/admin/device_install_reg/index?admin_nav=11&sort=id&order=desc&offset=0&limit=10&op=%7B%22apply_name%22%3A%22EXTEND%22%7D", params)
+	resp, err := bind.apiClient.Get(bind.baseUrl+"device_install_reg/index?admin_nav=11&sort=id&order=desc&offset=0&limit=10&op=%7B%22apply_name%22%3A%22EXTEND%22%7D", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, filter)
 }
 
 /*
@@ -489,11 +507,11 @@ DeleteInstallation
 		"ids":    id,
 		"action": "del",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/device_install_reg/del/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_install_reg/del/ids/%v", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -509,15 +527,15 @@ CreateWeaningApplication
 		"row[apply_sn]":          "0769000066",
 		"row[weaning_time]":      time.Now().Format("2006-01-02 15:04:05"),
 		"row[last_time]":         time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02 15:04:05"),
-		"row[property_tel]":      13883036130,
+		"row[property_tel]":      "13888888888",
 		"row[director]":          370,
 		"row[remarks]":           "测试",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/terminal_weaning_device/add?apply_sn=%v&dialog=1", applySn), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_weaning_device/add?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, applySn, deviceId)
 }
 
 /*
@@ -529,11 +547,11 @@ func (bind *AdminApi[T]) GetWeaningApplicationList(filter string) (*ApiRet, erro
 	params := map[string]string{
 		"filter": filter,
 	}
-	resp, err := bind.apiClient.Get("https://wx-dev.bbys.cn/admin/terminal_weaning_device/index/", params)
+	resp, err := bind.apiClient.Get(bind.baseUrl+"terminal_weaning_device/index/", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, filter)
 }
 
 /*
@@ -545,11 +563,11 @@ ApproveWeaningApplication
 		"ids":    id,
 		"params": "approve_status=1",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/terminal_weaning_device/multi/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_weaning_device/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, id)
 }
 
 /*
@@ -562,12 +580,12 @@ CreateWeaningReg
 		"row[apply_sn]":     applySn,
 		"row[device_id]":    deviceId,
 		"row[weaning_time]": time.Now().Format("2006-01-02 15:04:05"),
-		"row[pic_list]":     "https://02a-certf05.bbys.cn/FS/Down/?id=fcd1a855f5e444c0869b1a0359fb9452,https://02a-certf05.bbys.cn/FS/Down/?id=3fa0ce7515bd4d969d042c2517a392bd,https://02a-certf05.bbys.cn/FS/Down/?id=68aba7fa2bed40269ca4f15606cd03c0,https://02a-certf05.bbys.cn/FS/Down/?id=e18bb7ccd7b842b288057b286b69136a",
-		"row[operator]":     "陈文豪",
+		"row[pic_list]":     "https://i.328888.xyz/2023/01/08/kKzKA.th.png,https://i.328888.xyz/2023/01/08/kKFDo.th.png,https://i.328888.xyz/2023/01/08/kKG3N.th.png,https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
+		"row[operator]":     "Chen",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf("http://loc.bbys.cn/admin/weaning_reg/add?apply_sn=%v&dialog=1", applySn), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"weaning_reg/add?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
-	return bind.toRet(resp)
+	return bind.toRet(resp, applySn, deviceId)
 }

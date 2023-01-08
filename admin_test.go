@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/gookit/goutil"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tidwall/gjson"
 	"io"
@@ -43,20 +46,28 @@ import (
 
 var adminApi = NewAdminApi()
 
+var adminDataError *AdminDataError
+
 func assertOk(ret *ApiRet, err error) {
-	ret, err = RetryIfNotSignIn(ret, err)
+	ret, err = RetryIfNotSignedIn(ret, err)
+	if err != nil && !errors.As(err, &adminDataError) {
+		log.Errorf("%+v", err)
+	}
 	So(err, ShouldBeNil)
 	SoMsg(gjson.Get(ret.Body, "msg").String(), gjson.Get(ret.Body, "code").Int(), ShouldNotBeZeroValue)
 }
 func assertHasOne(ret *ApiRet, err error) {
-	ret, err = RetryIfNotSignIn(ret, err)
+	ret, err = RetryIfNotSignedIn(ret, err)
+	if err != nil && !errors.As(err, &adminDataError) {
+		log.Errorf("%+v", err)
+	}
 	So(err, ShouldBeNil)
 	SoMsg("没有找到任何记录", gjson.Get(ret.Body, "total").Int(), ShouldBeGreaterThan, 0)
 }
-func RetryIfNotSignIn(ret *ApiRet, err error) (*ApiRet, error) {
-	if err != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
+func RetryIfNotSignedIn(ret *ApiRet, err error) (*ApiRet, error) {
+	if err != nil && ret != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
 		pp("登录")
-		ret2, err2 := adminApi.SignIn("chenwh", "!chen83312")
+		ret2, err2 := adminApi.SignIn(os.Getenv("SIGN_IN_USERNAME"), os.Getenv("SIGN_IN_PASSWORD"))
 		So(err2, ShouldBeNil)
 		SoMsg(gjson.Get(ret2.Body, "msg").String(), gjson.Get(ret2.Body, "code").Int(), ShouldNotBeZeroValue)
 		pp("再次请求")
@@ -64,7 +75,7 @@ func RetryIfNotSignIn(ret *ApiRet, err error) (*ApiRet, error) {
 		ret = callResult[0].Interface().(*ApiRet)
 		err, _ = callResult[1].Interface().(error)
 	}
-	return ret, err
+	return ret, errors.WithStack(err)
 }
 func pp(items ...interface{}) (written int, err error) {
 	Println()
@@ -73,9 +84,8 @@ func pp(items ...interface{}) (written int, err error) {
 func getMacAddr() string {
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		return "0"
+		return err.Error()
 	}
-
 	maxIndexInterface := interfaces[0]
 	for _, inter := range interfaces {
 		if inter.HardwareAddr == nil {
@@ -102,19 +112,14 @@ func (bind *CreateDevice) Run(t *testing.T) {
 	Retry:
 		file, err := os.OpenFile("./data/device_id", os.O_RDWR|os.O_CREATE, os.ModePerm)
 		defer file.Close()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
 		content, err := io.ReadAll(file)
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
 		id := goutil.Int(string(content)) + 1
 		file.Truncate(0)
 		file.Seek(0, 0)
-		if _, err = file.WriteString(goutil.String(id)); err != nil {
-			panic(err)
-		}
+		_, err = file.WriteString(goutil.String(id))
+		So(err, ShouldBeNil)
 		deviceId := fmt.Sprintf("got-%v-%v", getMacAddr()[12:17], goutil.String(id))
 		ret, err := adminApi.CreateDevice(deviceId, deviceId)
 		So(err, ShouldBeNil)

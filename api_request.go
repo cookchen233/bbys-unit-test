@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gookit/goutil"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 )
 
+// ApiClient http请求基础对象
 type ApiClient struct {
 	client  *http.Client
 	cookies []*http.Cookie
@@ -23,8 +25,8 @@ func NewApiClient() *ApiClient {
 	client := &http.Client{
 		Jar: jar,
 	}
-	if runtime.GOOS == "darwin" {
-		proxyURL, _ := url.Parse("http://127.0.0.1:9090")
+	if os.Getenv("PROXY_ENABLED") == "true" {
+		proxyURL, _ := url.Parse(os.Getenv("PROXY_URL"))
 		client.Transport = &http.Transport{
 			//DisableCompression: true,
 			Proxy: http.ProxyURL(proxyURL),
@@ -40,11 +42,11 @@ func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
 	file, err := os.OpenFile("./results/chrome_default_cookie.json", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	defer file.Close()
 	if err != nil {
-		panic(err)
+		return errors.WithStack(err)
 	}
 	content, err := io.ReadAll(file)
 	if err != nil {
-		panic(err)
+		return errors.WithStack(err)
 	}
 	var data []map[string]interface{}
 	if len(content) > 0 {
@@ -103,9 +105,6 @@ func (bind *ApiClient) GetHistoryRequests(resp *http.Response) (history []*http.
 }
 
 func (bind *ApiClient) Get(urlStr string, params map[string]string) (*http.Response, error) {
-	if runtime.GOOS == "darwin" {
-		urlStr = strings.Replace(urlStr, "http://loc.bbys.cn/", "https://wx-dev.bbys.cn/", 1)
-	}
 	req, _ := http.NewRequest("GET", urlStr, nil)
 	q := req.URL.Query()
 	for i, v := range params {
@@ -116,9 +115,6 @@ func (bind *ApiClient) Get(urlStr string, params map[string]string) (*http.Respo
 	return bind.Do(req)
 }
 func (bind *ApiClient) Post(urlStr string, params map[string]interface{}) (*http.Response, error) {
-	if runtime.GOOS == "darwin" {
-		urlStr = strings.Replace(urlStr, "http://loc.bbys.cn/", "https://wx-dev.bbys.cn/", 1)
-	}
 	formData := url.Values{}
 	for i, v := range params {
 		switch v := v.(type) {
@@ -143,14 +139,14 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 		reqBody, err = io.ReadAll(req.Body)
 		defer req.Body.Close()
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 	}
 	bind.SetCookie(req.URL, &http.Cookie{})
 	resp, err := bind.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	// 如果发生重定向, request的Body内容会被清空
 	resp2 := resp
@@ -164,7 +160,7 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 				Domain: r.Host,
 			})
 			if err != nil {
-				return resp, err
+				return resp, errors.WithStack(err)
 			}
 		}
 		if r.Response == nil {
@@ -174,5 +170,5 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 		resp2 = r.Response
 	}
 
-	return resp, err
+	return resp, errors.WithStack(err)
 }
