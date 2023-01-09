@@ -52,7 +52,7 @@ func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
 	if len(content) > 0 {
 		err = json.Unmarshal(content, &data)
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 	var data2 []map[string]interface{}
@@ -80,7 +80,7 @@ func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
 	bind.client.Jar.SetCookies(urlParse, cookies)
 	content, err = json.Marshal(data2)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	var jsonBuffer bytes.Buffer
 	_ = json.Indent(&jsonBuffer, content, "", "    ")
@@ -88,7 +88,7 @@ func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
 	file.Seek(0, 0)
 	_, err = file.Write(jsonBuffer.Bytes())
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 				Domain: r.Host,
 			})
 			if err != nil {
-				return resp, errors.WithStack(err)
+				return resp, err
 			}
 		}
 		if r.Response == nil {
@@ -170,5 +170,5 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 		resp2 = r.Response
 	}
 
-	return resp, errors.WithStack(err)
+	return resp, nil
 }

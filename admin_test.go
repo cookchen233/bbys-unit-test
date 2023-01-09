@@ -75,7 +75,7 @@ func RetryIfNotSignedIn(ret *ApiRet, err error) (*ApiRet, error) {
 		ret = callResult[0].Interface().(*ApiRet)
 		err, _ = callResult[1].Interface().(error)
 	}
-	return ret, errors.WithStack(err)
+	return ret, err //errors.WithStack(err)
 }
 func pp(items ...interface{}) (written int, err error) {
 	Println()
@@ -129,7 +129,7 @@ func (bind *CreateDevice) Run(t *testing.T) {
 			goto Retry
 		}
 		SoMsg(gjson.Get(ret.Body, "msg").String(), gjson.Get(ret.Body, "status").Int(), ShouldEqual, 1)
-		ret, err = adminApi.UpDeviceStatus(deviceId)
+		ret, err = adminApi.UpdateDeviceStatus(deviceId)
 		So(err, ShouldBeNil)
 		SoMsg(gjson.Get(ret.Body, "msg").String(), gjson.Get(ret.Body, "status").Int(), ShouldEqual, 1)
 		bind.device = gjson.Parse(fmt.Sprintf(`{"device_id": "%v"}`, deviceId))

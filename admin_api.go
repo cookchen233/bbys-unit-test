@@ -73,7 +73,7 @@ func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRe
 		if err != nil {
 			err = errors.WithStack(&AdminDataError{"解析json数据时发生错误 " + err.Error()})
 		} else {
-			err = errors.WithStack(&AdminDataError{"无效数据"})
+			err = errors.WithStack(&AdminDataError{"无效返回数据"})
 		}
 		var logContent = []string{
 			err.Error(),
@@ -106,7 +106,7 @@ func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRe
 		log.Error(strings.Join(append(logContent, logContent2...), "\n"))
 
 	}
-	return &ret, errors.WithStack(err)
+	return &ret, err
 }
 
 /*
@@ -122,7 +122,7 @@ func (bind *AdminApi[T]) SignIn(username string, password string) (*ApiRet, erro
 	}
 	resp, err := bind.apiClient.Post(os.Getenv("SIGN_IN_URL"), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, username, password)
 }
@@ -144,24 +144,24 @@ func (bind *AdminApi[T]) CreateDevice(deviceId string, accessCode string) (*ApiR
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_device/initDevice%v", ""), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, deviceId, accessCode)
 }
 
 /*
-UpDeviceStatus
-更新设备状态设备
+UpdateDeviceStatus
+更新设备状态
 @param deviceId 设备号
 */
-func (bind *AdminApi[T]) UpDeviceStatus(deviceId string) (*ApiRet, error) {
+func (bind *AdminApi[T]) UpdateDeviceStatus(deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    deviceId,
 		"params": "status=2",
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_device/multi/ids/%v", deviceId), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, deviceId)
 }
@@ -210,7 +210,7 @@ func (bind *AdminApi[T]) CreateLocation(name string) (*ApiRet, error) {
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/add?dialog=1%v", ""), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, name)
 }
@@ -226,7 +226,7 @@ func (bind *AdminApi[T]) GetLocList(filter string) (*ApiRet, error) {
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"device_location_reg/index?admin_nav=10&sort=id&order=desc&offset=0&limit=10&op=%7B%22name%22%3A%22LIKE%22%7D", params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, filter)
 }
@@ -242,7 +242,7 @@ ApproveLocation
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/multi%v", ""), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -258,7 +258,7 @@ DeleteLocation
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg/del/ids/%v", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -275,7 +275,7 @@ SetInstallTime
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg_estimated_install/updateinstall/ids/%v?dialog=1", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -293,7 +293,7 @@ CreateExwarehouse
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_location_reg_estimated_install/exwarehouse/apply_sn/%v?dialog=1", applySn), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, applySn)
 }
@@ -309,7 +309,7 @@ func (bind *AdminApi[T]) GetExwarehouseList(filter string) (*ApiRet, error) {
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"device_location_reg_estimated_install/index/", params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, filter)
 }
@@ -325,7 +325,7 @@ ApproveExwarehouse
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -343,7 +343,7 @@ ExwarehouseNotice
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_notice/add?warehouse_id=%v&dialog=1", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -360,7 +360,7 @@ CreateExwarehouseDevice
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"Exwarehouse_device/add.html?warehouse_id=%v&dialog=1", exwareHouseId), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, exwareHouseId, deviceId)
 }
@@ -381,7 +381,7 @@ CreateExwarehouseArrive
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/edit?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, applySn, deviceId)
 }
@@ -397,7 +397,7 @@ func (bind *AdminApi[T]) GetExwarehouseArriveList(filter string) (*ApiRet, error
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"exwarehouse_arrive/index/", params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, filter)
 }
@@ -413,7 +413,7 @@ ApproveExwarehouseArrive
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -436,7 +436,7 @@ CreateArrivedStatement
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"logistics_arrived_statement/add/arrive_id/%v?dialog=1", arriveId), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, arriveId)
 }
@@ -477,7 +477,7 @@ CreateInstallation
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_install_reg/add/apply_sn/%v?dialog=1", applySn), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, applySn, deviceId)
 }
@@ -493,7 +493,7 @@ func (bind *AdminApi[T]) GetInstallationList(filter string) (*ApiRet, error) {
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"device_install_reg/index?admin_nav=11&sort=id&order=desc&offset=0&limit=10&op=%7B%22apply_name%22%3A%22EXTEND%22%7D", params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, filter)
 }
@@ -509,7 +509,7 @@ DeleteInstallation
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"device_install_reg/del/ids/%v", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -533,7 +533,7 @@ CreateWeaningApplication
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_weaning_device/add?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, applySn, deviceId)
 }
@@ -549,7 +549,7 @@ func (bind *AdminApi[T]) GetWeaningApplicationList(filter string) (*ApiRet, erro
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"terminal_weaning_device/index/", params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, filter)
 }
@@ -565,7 +565,7 @@ ApproveWeaningApplication
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"terminal_weaning_device/multi/ids/%v", id), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, id)
 }
@@ -585,7 +585,7 @@ CreateWeaningReg
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"weaning_reg/add?apply_sn=%v&dialog=1", applySn), params)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	return bind.toRet(resp, applySn, deviceId)
 }
