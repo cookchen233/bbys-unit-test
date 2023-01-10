@@ -120,7 +120,7 @@ func (bind *AdminApi[T]) SignIn(username string, password string) (*ApiRet, erro
 		"username": username,
 		"password": password,
 	}
-	resp, err := bind.apiClient.Post(os.Getenv("SIGN_IN_URL"), params)
+	resp, err := bind.apiClient.Post(os.Getenv("BASE_URL")+"index/login.html", params)
 	if err != nil {
 		return nil, err
 	}

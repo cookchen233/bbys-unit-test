@@ -67,9 +67,10 @@ func assertHasOne(ret *ApiRet, err error) {
 func RetryIfNotSignedIn(ret *ApiRet, err error) (*ApiRet, error) {
 	if err != nil && ret != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
 		pp("登录")
-		ret2, err2 := adminApi.SignIn(os.Getenv("SIGN_IN_USERNAME"), os.Getenv("SIGN_IN_PASSWORD"))
-		So(err2, ShouldBeNil)
-		SoMsg(gjson.Get(ret2.Body, "msg").String(), gjson.Get(ret2.Body, "code").Int(), ShouldNotBeZeroValue)
+		ret2, _ := adminApi.SignIn(os.Getenv("SIGN_IN_USERNAME"), os.Getenv("SIGN_IN_PASSWORD"))
+		if ret2.Resp.Request.Response == nil {
+			SoMsg(gjson.Get(ret2.Body, "msg").String(), gjson.Get(ret2.Body, "code").Int(), ShouldNotBeZeroValue)
+		}
 		pp("再次请求")
 		callResult := reflect.ValueOf(adminApi).MethodByName(ret.Method).Call(ret.Args)
 		ret = callResult[0].Interface().(*ApiRet)

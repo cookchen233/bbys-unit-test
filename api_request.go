@@ -152,7 +152,9 @@ func (bind *ApiClient) Do(req *http.Request) (*http.Response, error) {
 	resp2 := resp
 	for resp2 != nil {
 		r := resp2.Request
-		for _, cookie := range resp.Cookies() {
+		h := http.Header{}
+		h.Add("Set-Cookie", resp2.Header.Get("Set-Cookie"))
+		for _, cookie := range (&http.Response{Header: h}).Cookies() {
 			err = bind.SetCookie(r.URL, &http.Cookie{
 				Name:   cookie.Name,
 				Value:  cookie.Value,
