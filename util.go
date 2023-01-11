@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -589,4 +590,10 @@ func fill_xlsx_cell(xlsx *excelize.File, sheet_name string, col int, value_list 
 	for i, v := range value_list {
 		xlsx.SetCellValue(sheet_name, abc[i]+strconv.Itoa(col), v)
 	}
+}
+
+func getCallFuncName(skip int) string {
+	pc, _, _, _ := runtime.Caller(skip)
+	caller := runtime.FuncForPC(pc).Name()
+	return caller[strings.LastIndex(caller, ".")+1:]
 }

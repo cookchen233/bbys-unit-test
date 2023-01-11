@@ -77,18 +77,20 @@ func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
 			"Host":    cookie.Domain,
 		})
 	}
-	bind.client.Jar.SetCookies(urlParse, cookies)
-	content, err = json.Marshal(data2)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	var jsonBuffer bytes.Buffer
-	_ = json.Indent(&jsonBuffer, content, "", "    ")
-	file.Truncate(0)
-	file.Seek(0, 0)
-	_, err = file.Write(jsonBuffer.Bytes())
-	if err != nil {
-		return errors.WithStack(err)
+	if len(cookies) > 0 {
+		bind.client.Jar.SetCookies(urlParse, cookies)
+		content, err = json.Marshal(data2)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		var jsonBuffer bytes.Buffer
+		_ = json.Indent(&jsonBuffer, content, "", "    ")
+		file.Truncate(0)
+		file.Seek(0, 0)
+		_, err = file.Write(jsonBuffer.Bytes())
+		if err != nil {
+			return errors.WithStack(err)
+		}
 	}
 	return nil
 }

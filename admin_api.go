@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -54,10 +53,8 @@ func NewAdminApi() *AdminApi[any] {
 func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRet, error) {
 	body, _ := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
-	pc, _, _, _ := runtime.Caller(1)
-	caller := runtime.FuncForPC(pc).Name()
 	ret := ApiRet{
-		Method: caller[strings.LastIndex(caller, ".")+1:],
+		Method: getCallFuncName(2),
 		Resp:   resp,
 		Body:   string(body),
 	}
@@ -67,14 +64,31 @@ func (bind *AdminApi[T]) toRet(resp *http.Response, args ...interface{}) (*ApiRe
 
 	var data map[string]interface{}
 	err := json.Unmarshal(body, &data)
-	_, ex := data["code"]
+	code, ex := data["code"]
 	_, ex2 := data["total"]
-	if err != nil || (!ex && !ex2) {
-		if err != nil {
-			err = errors.WithStack(&AdminDataError{"解析json数据时发生错误 " + err.Error()})
-		} else {
-			err = errors.WithStack(&AdminDataError{"无效返回数据"})
+	status, ex3 := data["status"]
+	var errCode int
+	var errMsg string
+	if err != nil {
+		errCode = 1
+		errMsg = "解析json数据时发生错误 " + err.Error()
+	} else if !ex && !ex2 && !ex3 {
+		errCode = 2
+		errMsg = "无效返回数据"
+	} else if ex {
+		if goutil.Int(code) != 1 {
+			errCode = 3
+			errMsg = data["msg"].(string)
 		}
+	} else if ex3 {
+		if goutil.Int(status) != 1 {
+			errCode = 4
+			errMsg = data["msg"].(string)
+		}
+
+	}
+	if errCode > 0 {
+		err = errors.WithStack(&AdminDataError{fmt.Sprintf("%v(%v)", errMsg, errCode)})
 		var logContent = []string{
 			err.Error(),
 			ret.Method,
@@ -124,7 +138,14 @@ func (bind *AdminApi[T]) SignIn(username string, password string) (*ApiRet, erro
 	if err != nil {
 		return nil, err
 	}
-	return bind.toRet(resp, username, password)
+	if resp.Request.Response == nil {
+		return bind.toRet(resp, username, password)
+	} else {
+		return &ApiRet{
+			Method: getCallFuncName(1),
+			Resp:   resp,
+		}, nil
+	}
 }
 
 /*
