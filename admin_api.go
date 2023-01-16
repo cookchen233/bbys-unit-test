@@ -237,11 +237,11 @@ func (bind *AdminApi[T]) CreateLocation(name string) (*ApiRet, error) {
 }
 
 /*
-GetLocList
+GetLocationList
 获取点位列表
 @param filter 筛选
 */
-func (bind *AdminApi[T]) GetLocList(filter string) (*ApiRet, error) {
+func (bind *AdminApi[T]) GetLocationList(filter string) (*ApiRet, error) {
 	params := map[string]string{
 		"filter": filter,
 	}

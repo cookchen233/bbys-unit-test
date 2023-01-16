@@ -138,7 +138,8 @@ func assertHasOne(ret *ApiRet, err error) *ApiRet {
 func RetryIfNotSignedIn(ret *ApiRet, err error) (*ApiRet, error) {
 	if err != nil && ret != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
 		pp("登录")
-		assertOk(adminApi.SignIn(os.Getenv("SIGN_IN_USERNAME"), os.Getenv("SIGN_IN_PASSWORD")))
+		_, err2 := adminApi.SignIn(os.Getenv("SIGN_IN_USERNAME"), os.Getenv("SIGN_IN_PASSWORD"))
+		convey.So(err2, convey.ShouldBeNil)
 		pp("再次请求")
 		callResult := reflect.ValueOf(adminApi).MethodByName(ret.Method).Call(ret.Args)
 		ret, _ = callResult[0].Interface().(*ApiRet)
@@ -202,8 +203,7 @@ func (bind *CreateLocation) Run(t *testing.T) {
 	name := "贵阳市花溪区" + time.Now().Format("2006-01-02 15:04:05")
 	assertOk(adminApi.CreateLocation(name))
 	pp("查询点位")
-	ret, err := adminApi.GetLocList(fmt.Sprintf(`{"name": "%v"}`, name))
-	assertHasOne(ret, err)
+	ret := assertHasOne(adminApi.GetLocationList(fmt.Sprintf(`{"name": "%v"}`, name)))
 	bind.location = gjson.Get(ret.Body, "rows.0")
 	bind.locationId = bind.location.Get("id").String()
 	bind.locationName = bind.location.Get("name").String()
@@ -252,8 +252,7 @@ func (bind *CreateExwarehouse) Run(t *testing.T) {
 				pp("出库申请")
 				assertOk(adminApi.CreateExwarehouse(bind.location.Get("apply_sn").String()))
 				pp("查询出库申请")
-				ret, err := adminApi.GetExwarehouseList(fmt.Sprintf(`{"name": "%v"}`, bind.locationName))
-				assertHasOne(ret, err)
+				ret := assertHasOne(adminApi.GetExwarehouseList(fmt.Sprintf(`{"name": "%v"}`, bind.locationName)))
 				bind.exwarehouse = gjson.Get(ret.Body, "rows.0")
 				bind.exwareHouseId = bind.exwarehouse.Get("warehouse_id").String()
 				pp("审批出库申请")
@@ -294,8 +293,7 @@ func (bind *CreateExwarehouseArrive) Run(t *testing.T) {
 	pp("到货登记")
 	assertOk(adminApi.CreateExwarehouseArrive(bind.applySn, bind.deviceId))
 	pp("查询到货登记")
-	ret, err := adminApi.GetExwarehouseArriveList(fmt.Sprintf(`{"name": "%v"}`, bind.locationName))
-	assertHasOne(ret, err)
+	ret := assertHasOne(adminApi.GetExwarehouseArriveList(fmt.Sprintf(`{"name": "%v"}`, bind.locationName)))
 	bind.arrive = gjson.Get(ret.Body, "rows.0")
 	pp("审批到货登记")
 	assertOk(adminApi.ApproveExwarehouseArrive(bind.arrive.Get("arrive_id").String()))
@@ -323,9 +321,7 @@ func TestClean(t *testing.T) {
 	t.Run("删除安装登记", func(t *testing.T) {
 		t.Parallel()
 		convey.Convey("", t, func() {
-			ret, err := RetryIfNotSignedIn(adminApi.GetInstallationList(`{"apply_name": "贵阳市花溪区202"}`))
-			convey.So(err, convey.ShouldBeNil)
-			convey.SoMsg("没有找到任何记录", gjson.Get(ret.Body, "total").Int(), convey.ShouldBeGreaterThan, 0)
+			ret := assertHasOne(adminApi.GetInstallationList(`{"apply_name": "贵阳市花溪区202"}`))
 			gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
 				_, err := adminApi.DeleteInstallation(row.Get("id").String())
 				if err != nil {
@@ -341,9 +337,7 @@ func TestClean(t *testing.T) {
 	t.Run("删除点位", func(t *testing.T) {
 		t.Parallel()
 		convey.Convey("", t, func() {
-			ret, err := RetryIfNotSignedIn(adminApi.GetLocList(`{"name": "贵阳市花溪区202"}`))
-			convey.So(err, convey.ShouldBeNil)
-			convey.SoMsg("没有找到任何记录", gjson.Get(ret.Body, "total").Int(), convey.ShouldBeGreaterThan, 0)
+			ret := assertHasOne(adminApi.GetLocationList(`{"name": "贵阳市花溪区202"}`))
 			gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
 				_, err := adminApi.DeleteLocation(row.Get("id").String())
 				if err != nil {
@@ -369,8 +363,7 @@ func (bind *CreateWeaningApplication) Run(t *testing.T) {
 	pp("撤机申请")
 	assertOk(adminApi.CreateWeaningApplication(bind.applySn, bind.deviceId))
 	pp("查询")
-	ret, err := adminApi.GetWeaningApplicationList(fmt.Sprintf(`{"device_id": "%v"}`, bind.deviceId))
-	assertHasOne(ret, err)
+	ret := assertHasOne(adminApi.GetWeaningApplicationList(fmt.Sprintf(`{"device_id": "%v"}`, bind.deviceId)))
 	bind.weaningApplication = gjson.Get(ret.Body, "rows.0")
 	pp("审批")
 	assertOk(adminApi.ApproveWeaningApplication(bind.weaningApplication.Get("id").String()))
