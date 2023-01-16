@@ -256,7 +256,8 @@ func (bind *AdminApi[T]) GetLocList(filter string) (*ApiRet, error) {
 ApproveLocation
 点位审批
 @param id 点位id
-*/func (bind *AdminApi[T]) ApproveLocation(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) ApproveLocation(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"params": "check_status=1",
@@ -272,7 +273,8 @@ ApproveLocation
 DeleteLocation
 删除点位
 @param id 点位id
-*/func (bind *AdminApi[T]) DeleteLocation(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) DeleteLocation(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"action": "del",
@@ -288,7 +290,8 @@ DeleteLocation
 SetInstallTime
 设置预计安装时间
 @param id 点位id
-*/func (bind *AdminApi[T]) SetInstallTime(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) SetInstallTime(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[id]":                     id,
 		"row[estimated_install_time]": time.Now().Format("2006-01-02"),
@@ -305,7 +308,8 @@ SetInstallTime
 CreateExwarehouse
 出库申请
 @param applySn 点位号
-*/func (bind *AdminApi[T]) CreateExwarehouse(applySn string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateExwarehouse(applySn string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[consignee]":        "Chen",
 		"row[consignee_time]":   time.Now().Format("2006-01-02"),
@@ -339,7 +343,8 @@ func (bind *AdminApi[T]) GetExwarehouseList(filter string) (*ApiRet, error) {
 ApproveExwarehouse
 出库审批
 @param id 出库id
-*/func (bind *AdminApi[T]) ApproveExwarehouse(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) ApproveExwarehouse(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"params": "audit_status=1",
@@ -355,7 +360,8 @@ ApproveExwarehouse
 ExwarehouseNotice
 出库通知
 @param id 出库id
-*/func (bind *AdminApi[T]) ExwarehouseNotice(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) ExwarehouseNotice(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[message]":                  "Chen",
 		"row[consignee_time]":           time.Now().Format("2006-01-02"),
@@ -374,7 +380,8 @@ CreateExwarehouseDevice
 设备登记
 @param exwareHouseId 出库id
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateExwarehouseDevice(exwareHouseId string, deviceId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateExwarehouseDevice(exwareHouseId string, deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[device_id]":        deviceId,
 		"row[exwarehouse_time]": time.Now().Format("2006-01-02"),
@@ -391,7 +398,8 @@ CreateExwarehouseArrive
 到货登记
 @param applysn 点位号
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateExwarehouseArrive(applySn string, deviceId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateExwarehouseArrive(applySn string, deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[logistics_status]": 1,
 		"row[cost]":             "1.00",
@@ -427,7 +435,8 @@ func (bind *AdminApi[T]) GetExwarehouseArriveList(filter string) (*ApiRet, error
 ApproveExwarehouseArrive
 到货登记审批
 @param id 到货登记id
-*/func (bind *AdminApi[T]) ApproveExwarehouseArrive(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) ApproveExwarehouseArrive(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"params": "approve_status=1",
@@ -444,7 +453,8 @@ CreateArrivedStatement
 添加物流费用结算单
 @param arriveId 到货登记id
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateArrivedStatement(arriveId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateArrivedStatement(arriveId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[exwarehouse_logistics_id]": 2,
 		"row[arrived_earliest]":         time.Now().Add(-24 * 7 * time.Hour).Format("2006-01-02 15:04:05"),
@@ -467,7 +477,8 @@ CreateInstallation
 点位安装登记
 @param applySn 点位号
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateInstallation(applySn string, deviceId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateInstallation(applySn string, deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[apply_sn]":                   applySn,
 		"row[device_id]":                  deviceId,
@@ -523,7 +534,8 @@ func (bind *AdminApi[T]) GetInstallationList(filter string) (*ApiRet, error) {
 DeleteInstallation
 删除安装登记
 @param id 安装登记id
-*/func (bind *AdminApi[T]) DeleteInstallation(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) DeleteInstallation(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"action": "del",
@@ -540,7 +552,8 @@ CreateWeaningApplication
 撤机申请
 @param applySn 点位号
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateWeaningApplication(applySn string, deviceId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateWeaningApplication(applySn string, deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[original_apply_sn]": applySn,
 		"row[device_id]":         deviceId,
@@ -579,7 +592,8 @@ func (bind *AdminApi[T]) GetWeaningApplicationList(filter string) (*ApiRet, erro
 ApproveWeaningApplication
 审批撤机申请
 @param id 到货登记id
-*/func (bind *AdminApi[T]) ApproveWeaningApplication(id string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) ApproveWeaningApplication(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"ids":    id,
 		"params": "approve_status=1",
@@ -596,7 +610,8 @@ CreateWeaningReg
 撤机登记
 @param applySn 点位号
 @param deviceId 设备号
-*/func (bind *AdminApi[T]) CreateWeaningReg(applySn string, deviceId string) (*ApiRet, error) {
+*/
+func (bind *AdminApi[T]) CreateWeaningReg(applySn string, deviceId string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[apply_sn]":     applySn,
 		"row[device_id]":    deviceId,
@@ -609,4 +624,83 @@ CreateWeaningReg
 		return nil, err
 	}
 	return bind.toRet(resp, applySn, deviceId)
+}
+
+/*
+CreatePrintTicketTemplate
+创建打印券模板
+*/
+func (bind *AdminApi[T]) CreatePrintTicketTemplate() (*ApiRet, error) {
+	params := map[string]interface{}{
+		"row[ticket_name]":       os.Getenv("TK_NAME"),
+		"row[partner_id]":        os.Getenv("TK_PARTNER_ID"),
+		"row[balance_type]":      1,
+		"row[ticket_type]":       3,
+		"row[support_devices]":   "",
+		"row[unsupport_devices]": "",
+		"row[type]":              2,
+		"row[order_type]":        strings.Split(os.Getenv("TK_ORDER_TYPE"), ","),
+		"row[max_times]":         os.Getenv("TK_MAX_TIMES"),
+		"row[get_way]":           "one-off",
+		"row[status]":            1,
+		"row[expired_type]":      1,
+		"row[expired_time]":      "",
+		"row[start_time]":        os.Getenv("TK_START"),
+		"row[end_time]":          os.Getenv("TK_END"),
+		"row[remark]":            os.Getenv("TK_REMARK"),
+	}
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"/user_free_ticket_conf/add?dialog=1%v", ""), params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp)
+}
+
+/*
+GetPrintTicketTemplateList
+查询打印券模板列表
+@param filter 筛选
+*/
+func (bind *AdminApi[T]) GetPrintTicketTemplateList(filter string) (*ApiRet, error) {
+	params := map[string]string{
+		"filter": filter,
+	}
+	resp, err := bind.apiClient.Get(bind.baseUrl+"user_free_ticket_conf/index?ref=addtabs&addtabs=1&sort=id&order=desc&offset=0&limit=10&filter=%7B%7D&op=%7B%7D&_=1673672689542", params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp, filter)
+}
+
+/*
+CreatePrintTicket
+创建打印券
+*/
+func (bind *AdminApi[T]) CreatePrintTicket(ticketTplId string, num int) (*ApiRet, error) {
+	params := map[string]interface{}{
+		"row[ticket_number]": ticketTplId,
+		"row[prefix]":        "CH",
+		"row[count]":         num,
+	}
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"user_free_ticket_unique_code/add?templ_id=%v&dialog=1", ticketTplId), params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp)
+}
+
+/*
+GetPrintTicketList
+查询打印券列表
+@param filter 筛选
+*/
+func (bind *AdminApi[T]) GetPrintTicketList(filter string) (*ApiRet, error) {
+	params := map[string]string{
+		"filter": filter,
+	}
+	resp, err := bind.apiClient.Get(bind.baseUrl+"user_free_ticket_unique_code/index?templ_id=%v&dialog=1&sort=id&order=desc", params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp, filter)
 }

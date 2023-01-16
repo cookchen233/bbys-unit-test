@@ -1,10 +1,16 @@
 package main
 
 import (
+	"bbys-unit-test/routine"
+	"compress/flate"
+	"encoding/json"
 	"fmt"
+	"github.com/gohouse/converter"
 	"github.com/gookit/goutil"
+	"github.com/gookit/goutil/mathutil"
 	"github.com/gookit/goutil/stdutil"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/mholt/archiver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/smartystreets/goconvey/convey"
@@ -24,6 +30,42 @@ func TestFoo(t *testing.T) {
 	fmt.Println(getMacAddr())
 	fmt.Println(getMacAddr()[12:17])
 	fmt.Println(runtime.GOOS)
+	// 初始化
+	t2t := converter.NewTable2Struct()
+	// 个性化配置
+	t2t.Config(&converter.T2tConfig{
+		// 如果字段首字母本来就是大写, 就不添加tag, 默认false添加, true不添加
+		RmTagIfUcFirsted: false,
+		// tag的字段名字是否转换为小写, 如果本身有大写字母的话, 默认false不转
+		TagToLower: false,
+		// 字段首字母大写的同时, 是否要把其他字母转换为小写,默认false不转换
+		UcFirstOnly: false,
+		//// 每个struct放入单独的文件,默认false,放入同一个文件(暂未提供)
+		//SeperatFile: false,
+	})
+	// 开始迁移转换
+	err := t2t.
+		// 指定某个表,如果不指定,则默认全部表都迁移
+		Table("user").
+		// 表前缀
+		Prefix("tp_").
+		// 是否添加json tag
+		EnableJsonTag(true).
+		// 生成struct的包名(默认为空的话, 则取名为: package model)
+		PackageName("model").
+		// tag字段的key值,默认是orm
+		TagKey("orm").
+		TagKey("form").
+		// 是否添加结构体方法获取表名
+		RealNameMethod("TableName").
+		// 生成的结构体保存路径
+		SavePath("./model/user.go").
+		// 数据库dsn,这里可以使用 t2t.DB() 代替,参数为 *sql.DB 对象
+		Dsn("root:@tcp(localhost:3306)/fast-admin?charset=utf8").
+		// 执行
+		Run()
+
+	fmt.Println(err)
 }
 func getMacAddr() string {
 	interfaces, err := net.Interfaces()
@@ -84,13 +126,14 @@ func assertOk(ret *ApiRet, err error) {
 	}
 	convey.SoMsg(stdutil.GetCallerInfo(2), err, convey.ShouldBeNil)
 }
-func assertHasOne(ret *ApiRet, err error) {
+func assertHasOne(ret *ApiRet, err error) *ApiRet {
 	ret, err = RetryIfNotSignedIn(ret, err)
 	if err != nil && !errors.As(err, &adminDataError) {
 		log.Errorf("%+v", err)
 	}
 	convey.SoMsg(stdutil.GetCallerInfo(2), err, convey.ShouldBeNil)
 	convey.SoMsg(stdutil.GetCallerInfo(2)+" 没有找到任何记录", gjson.Get(ret.Body, "total").Int(), convey.ShouldBeGreaterThan, 0)
+	return ret
 }
 func RetryIfNotSignedIn(ret *ApiRet, err error) (*ApiRet, error) {
 	if err != nil && ret != nil && strings.Contains(ret.Resp.Request.URL.String(), "/login") {
@@ -349,4 +392,87 @@ func (bind *CreateWeaningReg) Run(t *testing.T) {
 }
 func TestCreateWeaningReg(t *testing.T) {
 	convey.Convey("", t, func() { (&CreateWeaningReg{}).Run(t) })
+}
+
+func MakeBatchTicket(name string, data []routine.VoucherData) {
+	qw, _ := mathutil.Int(os.Getenv("VCH_QRCODE_W"))
+	qx, _ := mathutil.Int(os.Getenv("VCH_QRCODE_X"))
+	qy, _ := mathutil.Int(os.Getenv("VCH_QRCODE_Y"))
+	tx, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_X"))
+	ty, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_Y"))
+	ts, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_SIZE"))
+	vc := routine.Voucher{
+		Name:        name,
+		TplFilename: os.Getenv("VCH_TPL_FILE"),
+		QrcodeW:     qw,
+		QrcodeX:     qx,
+		QrcodeY:     qy,
+		TextX:       tx,
+		TextY:       ty,
+		TextSize:    ts,
+		SaveDir:     os.Getenv("VCH_SAVE_DIR"),
+		//FontFilename: "./data/font/inter/inter-VariableFont_slnt,wght.ttf",
+	}
+	dir := vc.MakeBatch(data)
+	z := archiver.Zip{
+		CompressionLevel:       flate.DefaultCompression,
+		MkdirAll:               true,
+		SelectiveCompression:   true,
+		ContinueOnError:        false,
+		OverwriteExisting:      true,
+		ImplicitTopLevelFolder: false,
+	}
+	pp("创建压缩文件")
+	zipFilename := dir + ".zip"
+	err := z.Archive([]string{dir}, zipFilename)
+	if err != nil {
+		panic(err)
+	}
+	pp("打印券已创建完成,位置:" + zipFilename)
+}
+
+func TestCreatePrintTicketTemplate(t *testing.T) {
+	convey.Convey("创建打印券并测试制作一张打印券图片", t, func() {
+		pp("创建打印券模板")
+		assertOk(adminApi.CreatePrintTicketTemplate())
+		pp("查询打印券模板")
+		ret := assertHasOne(adminApi.GetPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
+		ticketTemplate := gjson.Get(ret.Body, "rows.0")
+		pp(ticketTemplate.Get("ticket_name"), ticketTemplate.Get("remark"))
+		pp("测试制作打印券图片")
+		pp("创建打印券数据(1条)")
+		assertOk(adminApi.CreatePrintTicket(ticketTemplate.Get("ticket_number").String(), 1))
+		pp("查询打印券")
+		ret = assertHasOne(adminApi.GetPrintTicketList(fmt.Sprintf(`{"templ_id":"%v"}`, ticketTemplate.Get("ticket_number").String())))
+		pp("制作打印券图片")
+		var data []routine.VoucherData
+		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &data); err != nil {
+			panic(err)
+		}
+		MakeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+	})
+}
+func TestCreatePrintTicket(t *testing.T) {
+	convey.Convey("确定没问题后, 创建打印券数据", t, func() {
+		pp("查询打印券模板")
+		ret := assertHasOne(adminApi.GetPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
+		ticketTemplate := gjson.Get(ret.Body, "rows.0")
+		pp("创建打印券数据")
+		assertOk(adminApi.CreatePrintTicket(ticketTemplate.Get("ticket_number").String(), goutil.Int(os.Getenv("VCH_TOTAL"))-1))
+	})
+}
+func TestMakeBatchTicket(t *testing.T) {
+	convey.Convey("然后制作打印券图片", t, func() {
+		pp("查询打印券模板")
+		ret := assertHasOne(adminApi.GetPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
+		ticketTemplate := gjson.Get(ret.Body, "rows.1")
+		pp("查询打印券")
+		ret = assertHasOne(adminApi.GetPrintTicketList(fmt.Sprintf(`{"templ_id":"%v"}`, ticketTemplate.Get("ticket_number").String())))
+		pp("制作打印券图片")
+		var data []routine.VoucherData
+		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &data); err != nil {
+			panic(err)
+		}
+		MakeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+	})
 }
