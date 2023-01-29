@@ -387,7 +387,7 @@ func TestCreateWeaningReg(t *testing.T) {
 	convey.Convey("", t, func() { (&CreateWeaningReg{}).Run(t) })
 }
 
-func MakeBatchTicket(name string, data []routine.VoucherData) {
+func makeBatchTicket(name string, data []routine.VoucherData) {
 	qw, _ := mathutil.Int(os.Getenv("VCH_QRCODE_W"))
 	qx, _ := mathutil.Int(os.Getenv("VCH_QRCODE_X"))
 	qy, _ := mathutil.Int(os.Getenv("VCH_QRCODE_Y"))
@@ -415,13 +415,13 @@ func MakeBatchTicket(name string, data []routine.VoucherData) {
 		OverwriteExisting:      true,
 		ImplicitTopLevelFolder: false,
 	}
-	pp("创建压缩文件")
+	pp("创建压缩文件...")
 	zipFilename := dir + ".zip"
 	err := z.Archive([]string{dir}, zipFilename)
 	if err != nil {
 		panic(err)
 	}
-	pp("打印券已创建完成,位置:" + zipFilename)
+	pp("创建完成,位置:" + zipFilename)
 }
 
 func TestCreatePrintTicketTemplate(t *testing.T) {
@@ -442,7 +442,7 @@ func TestCreatePrintTicketTemplate(t *testing.T) {
 		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &data); err != nil {
 			panic(err)
 		}
-		MakeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
 	})
 }
 func TestCreatePrintTicket(t *testing.T) {
@@ -466,6 +466,8 @@ func TestMakeBatchTicket(t *testing.T) {
 		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &data); err != nil {
 			panic(err)
 		}
-		MakeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+		t := time.Now()
+		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+		fmt.Println(time.Now().Sub(t).Seconds())
 	})
 }

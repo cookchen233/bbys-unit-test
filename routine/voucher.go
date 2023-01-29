@@ -71,7 +71,7 @@ func (bind *Voucher) MakeBatch(data []VoucherData) string {
 			fmt.Printf("\n%v complted %v/%v", filename, i+1, len(data))
 		}
 	}()
-	ths := runtime.NumCPU() * 4
+	ths := runtime.NumCPU() * 2
 	step := int(math.Ceil(float64(len(data)) / float64(ths)))
 	for i := 0; i < len(data); i += step {
 		wg.Add(1)
