@@ -673,6 +673,22 @@ func (bind *AdminApi[T]) GetPrintTicketTemplateList(filter string) (*ApiRet, err
 }
 
 /*
+GetCashPrintTicketTemplateList
+查询现金打印券模板列表
+@param filter 筛选
+*/
+func (bind *AdminApi[T]) GetCashPrintTicketTemplateList(filter string) (*ApiRet, error) {
+	params := map[string]string{
+		"filter": filter,
+	}
+	resp, err := bind.apiClient.Get(bind.baseUrl+"user_free_cash_coupon_conf/index?ref=addtabs&addtabs=1&sort=id&order=desc&offset=0&limit=10&filter=%7B%7D&op=%7B%7D&_=1676098309383", params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp, filter)
+}
+
+/*
 CreatePrintTicket
 创建打印券
 */
@@ -699,6 +715,20 @@ func (bind *AdminApi[T]) GetPrintTicketList(filter string) (*ApiRet, error) {
 		"filter": filter,
 	}
 	resp, err := bind.apiClient.Get(bind.baseUrl+"user_free_ticket_unique_code/index?templ_id=%v&dialog=1&sort=id&order=desc", params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp, filter)
+} /*
+GetCashPrintTicketList
+查询现金打印券列表
+@param filter 筛选
+*/
+func (bind *AdminApi[T]) GetCashPrintTicketList(filter string) (*ApiRet, error) {
+	params := map[string]string{
+		"filter": filter,
+	}
+	resp, err := bind.apiClient.Get(bind.baseUrl+"user_free_cash_coupon_unique_code/index?templ_id=%v&dialog=1&sort=id&order=desc", params)
 	if err != nil {
 		return nil, err
 	}

@@ -21,6 +21,7 @@ type Voucher struct {
 	QrcodeW      int
 	QrcodeX      int
 	QrcodeY      int
+	HasText      bool
 	TextX        float64
 	TextY        float64
 	TextSize     float64
@@ -100,12 +101,14 @@ func (bind *Voucher) drawImage(data VoucherData, filename string) {
 	qr.DisableBorder = true
 	dc := gg.NewContextForImage(bind.bg)
 	dc.DrawImage(qr.Image(bind.QrcodeW), bind.QrcodeX, bind.QrcodeY)
-	dc.SetFontFace(truetype.NewFace(bind.font, &truetype.Options{
-		Size: bind.TextSize,
-		DPI:  180,
-	}))
-	dc.SetRGB(0, 0, 0)
-	dc.DrawString(data.Text, bind.TextX, bind.TextY)
+	if bind.HasText {
+		dc.SetFontFace(truetype.NewFace(bind.font, &truetype.Options{
+			Size: bind.TextSize,
+			DPI:  180,
+		}))
+		dc.SetRGB(0, 0, 0)
+		dc.DrawString(data.Text, bind.TextX, bind.TextY)
+	}
 	if err := dc.SavePNG(filename); err != nil {
 		panic(err)
 	}

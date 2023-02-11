@@ -388,9 +388,14 @@ func TestCreateWeaningReg(t *testing.T) {
 }
 
 func makeBatchTicket(name string, data []routine.VoucherData) {
+	isTest, _ := goutil.ToBool(os.Getenv("VCH_IS_TEST"))
+	if isTest {
+		data = data[0:3]
+	}
 	qw, _ := mathutil.Int(os.Getenv("VCH_QRCODE_W"))
 	qx, _ := mathutil.Int(os.Getenv("VCH_QRCODE_X"))
 	qy, _ := mathutil.Int(os.Getenv("VCH_QRCODE_Y"))
+	hasTx, _ := goutil.ToBool(os.Getenv("VCH_HAS_TEXT"))
 	tx, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_X"))
 	ty, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_Y"))
 	ts, _ := mathutil.ToFloat(os.Getenv("VCH_TEXT_SIZE"))
@@ -400,6 +405,7 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		QrcodeW:     qw,
 		QrcodeX:     qx,
 		QrcodeY:     qy,
+		HasText:     hasTx,
 		TextX:       tx,
 		TextY:       ty,
 		TextSize:    ts,
@@ -467,7 +473,42 @@ func TestMakeBatchTicket(t *testing.T) {
 			panic(err)
 		}
 		t := time.Now()
-		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data[:1])
+		fmt.Println(time.Now().Sub(t).Seconds())
+	})
+}
+func TestMakeBatchTicket2(t *testing.T) {
+	convey.Convey("然后制作打印券图片", t, func() {
+		pp("查询打印券模板")
+		ret := assertHasOne(adminApi.GetCashPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
+		var ticketTemplate gjson.Result
+		gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
+			pp(row.Get("id").String())
+			if row.Get("id").String() == "365" {
+				ticketTemplate = row
+				return false
+			}
+			return true
+		})
+		if ticketTemplate.Get("id").String() == "" {
+			panic("没有找到该打印券模板")
+		}
+		pp("查询打印券")
+		ret = assertHasOne(adminApi.GetCashPrintTicketList(fmt.Sprintf(`{"templ_id":"%v"}`, ticketTemplate.Get("coupon_number").String())))
+		pp("制作打印券图片")
+		var jsonData []map[string]interface{}
+		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &jsonData); err != nil {
+			panic(err)
+		}
+		var data []routine.VoucherData
+		for _, v := range jsonData {
+			data = append(data, routine.VoucherData{
+				Text: v["coupon_number"].(string),
+				Url:  v["qrcode"].(string),
+			})
+		}
+		t := time.Now()
+		makeBatchTicket(ticketTemplate.Get("coupon_name").String(), data)
 		fmt.Println(time.Now().Sub(t).Seconds())
 	})
 }
