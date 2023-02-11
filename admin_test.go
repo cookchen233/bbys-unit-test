@@ -389,9 +389,6 @@ func TestCreateWeaningReg(t *testing.T) {
 
 func makeBatchTicket(name string, data []routine.VoucherData) {
 	isTest, _ := goutil.ToBool(os.Getenv("VCH_IS_TEST"))
-	if isTest {
-		data = data[0:3]
-	}
 	qw, _ := mathutil.Int(os.Getenv("VCH_QRCODE_W"))
 	qx, _ := mathutil.Int(os.Getenv("VCH_QRCODE_X"))
 	qy, _ := mathutil.Int(os.Getenv("VCH_QRCODE_Y"))
@@ -411,6 +408,9 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		TextSize:    ts,
 		SaveDir:     os.Getenv("VCH_SAVE_DIR"),
 		//FontFilename: "./data/font/inter/inter-VariableFont_slnt,wght.ttf",
+	}
+	if isTest {
+		data = data[0:3]
 	}
 	dir := vc.MakeBatch(data)
 	z := archiver.Zip{
@@ -477,14 +477,46 @@ func TestMakeBatchTicket(t *testing.T) {
 		fmt.Println(time.Now().Sub(t).Seconds())
 	})
 }
-func TestMakeBatchTicket2(t *testing.T) {
+
+func TestMakeBatchTicketByTplId(t *testing.T) {
+	convey.Convey("然后制作打印券图片", t, func() {
+		pp("查询打印券模板")
+		ret := assertHasOne(adminApi.GetPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
+		var ticketTemplate gjson.Result
+		tplId := os.Getenv("VCH_TPL_ID")
+		gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
+			pp(row.Get("id").String())
+			if row.Get("id").String() == tplId {
+				ticketTemplate = row
+				return false
+			}
+			return true
+		})
+		if ticketTemplate.Get("id").String() == "" {
+			panic("没有找到该打印券模板")
+		}
+		pp("查询打印券")
+		ret = assertHasOne(adminApi.GetPrintTicketList(fmt.Sprintf(`{"templ_id":"%v"}`, ticketTemplate.Get("ticket_number").String())))
+		pp("制作打印券图片")
+		var data []routine.VoucherData
+		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &data); err != nil {
+			panic(err)
+		}
+		t := time.Now()
+		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
+		fmt.Println(time.Now().Sub(t).Seconds())
+	})
+}
+
+func TestMakeBatchCashTicketByTplId(t *testing.T) {
 	convey.Convey("然后制作打印券图片", t, func() {
 		pp("查询打印券模板")
 		ret := assertHasOne(adminApi.GetCashPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
 		var ticketTemplate gjson.Result
+		tplId := os.Getenv("VCH_TPL_ID")
 		gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
 			pp(row.Get("id").String())
-			if row.Get("id").String() == "365" {
+			if row.Get("id").String() == tplId {
 				ticketTemplate = row
 				return false
 			}
