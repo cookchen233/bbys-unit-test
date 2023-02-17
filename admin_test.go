@@ -410,6 +410,7 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		//FontFilename: "./data/font/inter/inter-VariableFont_slnt,wght.ttf",
 	}
 	if isTest {
+		pp("测试制作3张图片")
 		data = data[0:3]
 	}
 	dir := vc.MakeBatch(data)
@@ -421,7 +422,7 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		OverwriteExisting:      true,
 		ImplicitTopLevelFolder: false,
 	}
-	pp("创建压缩文件...")
+	pp("\n\n创建压缩文件...")
 	zipFilename := dir + ".zip"
 	err := z.Archive([]string{dir}, zipFilename)
 	if err != nil {
@@ -479,7 +480,7 @@ func TestMakeBatchTicket(t *testing.T) {
 }
 
 func TestMakeBatchTicketByTplId(t *testing.T) {
-	convey.Convey("然后制作打印券图片", t, func() {
+	convey.Convey("直接根据打印券模板ID制作打印券", t, func() {
 		pp("查询打印券模板")
 		ret := assertHasOne(adminApi.GetPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
 		var ticketTemplate gjson.Result
@@ -509,8 +510,8 @@ func TestMakeBatchTicketByTplId(t *testing.T) {
 }
 
 func TestMakeBatchCashTicketByTplId(t *testing.T) {
-	convey.Convey("然后制作打印券图片", t, func() {
-		pp("查询打印券模板")
+	convey.Convey("直接根据代金券模板ID制作代金券", t, func() {
+		pp("查询代金券模板")
 		ret := assertHasOne(adminApi.GetCashPrintTicketTemplateList(fmt.Sprintf(`{%v}`, "")))
 		var ticketTemplate gjson.Result
 		tplId := os.Getenv("VCH_TPL_ID")
@@ -523,11 +524,11 @@ func TestMakeBatchCashTicketByTplId(t *testing.T) {
 			return true
 		})
 		if ticketTemplate.Get("id").String() == "" {
-			panic("没有找到该打印券模板")
+			panic("没有找到该代金券模板")
 		}
-		pp("查询打印券")
+		pp("查询代金券")
 		ret = assertHasOne(adminApi.GetCashPrintTicketList(fmt.Sprintf(`{"templ_id":"%v"}`, ticketTemplate.Get("coupon_number").String())))
-		pp("制作打印券图片")
+		pp("制作代金券图片")
 		var jsonData []map[string]interface{}
 		if err := json.Unmarshal([]byte(gjson.Get(ret.Body, "rows").String()), &jsonData); err != nil {
 			panic(err)
@@ -541,6 +542,6 @@ func TestMakeBatchCashTicketByTplId(t *testing.T) {
 		}
 		t := time.Now()
 		makeBatchTicket(ticketTemplate.Get("coupon_name").String(), data)
-		fmt.Println(time.Now().Sub(t).Seconds())
+		pp(fmt.Sprintf("耗时: %.2fs", time.Now().Sub(t).Seconds()))
 	})
 }
