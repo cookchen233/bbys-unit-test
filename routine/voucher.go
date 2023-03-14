@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,7 +59,7 @@ func (bind *Voucher) setBg(filename string) {
 
 func (bind *Voucher) MakeBatch(data []VoucherData) string {
 	saveDir := bind.SaveDir + dirSep + time.Now().Format("20060102"+dirSep+"")
-	dir := saveDir + bind.Name
+	dir := saveDir + strings.Replace(bind.Name, "/", "", -1)
 	if _, err := os.Stat(dir); err != nil {
 		os.MkdirAll(dir, 0755)
 	}

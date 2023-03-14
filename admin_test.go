@@ -2,7 +2,6 @@ package main
 
 import (
 	"bbys-unit-test/routine"
-	"compress/flate"
 	"encoding/json"
 	"fmt"
 	"github.com/gohouse/converter"
@@ -10,7 +9,6 @@ import (
 	"github.com/gookit/goutil/mathutil"
 	"github.com/gookit/goutil/stdutil"
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/mholt/archiver"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/smartystreets/goconvey/convey"
@@ -414,7 +412,10 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		data = data[0:3]
 	}
 	dir := vc.MakeBatch(data)
-	z := archiver.Zip{
+	pp("\n\n创建压缩文件...")
+	zipFilename := dir
+	zipFilename += ".zip"
+	/*z := archiver.Zip{
 		CompressionLevel:       flate.DefaultCompression,
 		MkdirAll:               true,
 		SelectiveCompression:   true,
@@ -422,9 +423,11 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		OverwriteExisting:      true,
 		ImplicitTopLevelFolder: false,
 	}
-	pp("\n\n创建压缩文件...")
-	zipFilename := dir + ".zip"
 	err := z.Archive([]string{dir}, zipFilename)
+	if err != nil {
+		panic(err)
+	}*/
+	err := routine.EncryptZip(dir, zipFilename, "1234")
 	if err != nil {
 		panic(err)
 	}
@@ -486,8 +489,8 @@ func TestMakeBatchTicketByTplId(t *testing.T) {
 		var ticketTemplate gjson.Result
 		tplId := os.Getenv("VCH_TPL_ID")
 		gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
-			pp(row.Get("id").String())
 			if row.Get("id").String() == tplId {
+				pp(row.Get("ticket_name").String())
 				ticketTemplate = row
 				return false
 			}
@@ -505,7 +508,7 @@ func TestMakeBatchTicketByTplId(t *testing.T) {
 		}
 		t := time.Now()
 		makeBatchTicket(ticketTemplate.Get("ticket_name").String(), data)
-		fmt.Println(time.Now().Sub(t).Seconds())
+		pp(fmt.Sprintf("耗时: %.2fs", time.Now().Sub(t).Seconds()))
 	})
 }
 
@@ -516,8 +519,8 @@ func TestMakeBatchCashTicketByTplId(t *testing.T) {
 		var ticketTemplate gjson.Result
 		tplId := os.Getenv("VCH_TPL_ID")
 		gjson.Get(ret.Body, "rows").ForEach(func(_, row gjson.Result) bool {
-			pp(row.Get("id").String())
 			if row.Get("id").String() == tplId {
+				pp(row.Get("coupon_name").String())
 				ticketTemplate = row
 				return false
 			}
