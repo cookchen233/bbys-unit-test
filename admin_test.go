@@ -159,18 +159,20 @@ func (bind *CreateDevice) Run(t *testing.T) {
 	tryTimes := 0
 Retry:
 	tryTimes++
-	file, err := os.OpenFile("./data/device_id", os.O_RDWR|os.O_CREATE, os.ModePerm)
-	defer file.Close()
-	convey.So(err, convey.ShouldBeNil)
-	content, err := io.ReadAll(file)
-	convey.So(err, convey.ShouldBeNil)
-	id := goutil.Int(string(content)) + 1
-	file.Truncate(0)
-	file.Seek(0, 0)
-	_, err = file.WriteString(goutil.String(id))
-	convey.So(err, convey.ShouldBeNil)
-	deviceId := fmt.Sprintf("got-%v-%v", getMacAddr()[12:17], goutil.String(id))
-	_, err = RetryIfNotSignedIn(adminApi.CreateDevice(deviceId, deviceId))
+	if bind.deviceId == "" {
+		file, err := os.OpenFile("./data/device_id", os.O_RDWR|os.O_CREATE, os.ModePerm)
+		defer file.Close()
+		convey.So(err, convey.ShouldBeNil)
+		content, err := io.ReadAll(file)
+		convey.So(err, convey.ShouldBeNil)
+		id := goutil.Int(string(content)) + 1
+		file.Truncate(0)
+		file.Seek(0, 0)
+		_, err = file.WriteString(goutil.String(id))
+		convey.So(err, convey.ShouldBeNil)
+		bind.deviceId = fmt.Sprintf("got-%v-%v", getMacAddr()[12:17], goutil.String(id))
+	}
+	_, err := RetryIfNotSignedIn(adminApi.CreateDevice(bind.deviceId, bind.deviceId))
 	if err != nil {
 		if !strings.Contains(err.Error(), "该授权码已使用") || tryTimes > 2 {
 			convey.So(err, convey.ShouldBeNil)
@@ -179,10 +181,9 @@ Retry:
 		goto Retry
 	}
 	pp("更新设备状态")
-	assertOk(adminApi.UpdateDeviceStatus(deviceId))
-	bind.device = gjson.Parse(fmt.Sprintf(`{"device_id": "%v"}`, deviceId))
-	bind.deviceId = bind.device.Get("device_id").String()
-	pp("创建设备成功" + bind.deviceId)
+	assertOk(adminApi.UpdateDeviceStatus(bind.deviceId))
+	bind.device = gjson.Parse(fmt.Sprintf(`{"device_id": "%v"}`, bind.deviceId))
+	pp("创建设备成功 " + bind.device.Get("device_id").String())
 
 }
 func TestCreateDevice(t *testing.T) {
@@ -198,17 +199,18 @@ type CreateLocation struct {
 
 func (bind *CreateLocation) Run(t *testing.T) {
 	pp("创建点位")
-	name := "贵阳市花溪区" + time.Now().Format("2006-01-02 15:04:05")
-	assertOk(adminApi.CreateLocation(name))
+	if bind.locationName == "" {
+		bind.locationName = "贵阳市花溪区" + time.Now().Format("2006-01-02 15:04:05")
+	}
+	assertOk(adminApi.CreateLocation(bind.locationName))
 	pp("查询点位")
-	ret := assertHasOne(adminApi.GetLocationList(fmt.Sprintf(`{"name": "%v"}`, name)))
+	ret := assertHasOne(adminApi.GetLocationList(fmt.Sprintf(`{"name": "%v"}`, bind.locationName)))
 	bind.location = gjson.Get(ret.Body, "rows.0")
 	bind.locationId = bind.location.Get("id").String()
-	bind.locationName = bind.location.Get("name").String()
 	bind.applySn = bind.location.Get("apply_sn").String()
 	pp("审核点位")
 	assertOk(adminApi.ApproveLocation(bind.location.Get("id").String()))
-	pp("创建点位成功" + bind.locationName)
+	pp("创建点位成功 " + bind.locationName)
 
 }
 func TestCreateLocation(t *testing.T) {
@@ -258,11 +260,12 @@ func (bind *CreateExwarehouse) Run(t *testing.T) {
 				pp("出库通知")
 				assertOk(adminApi.ExwarehouseNotice(bind.exwareHouseId))
 				pp("获取设备号")
+				//bind.deviceId = "600100"
 				for bind.deviceId == "" {
 					pp("...")
 					time.Sleep(time.Second)
 				}
-				pp("得到设备号" + bind.deviceId)
+				pp("得到设备号 " + bind.deviceId)
 				pp("设备登记")
 				assertOk(adminApi.CreateExwarehouseDevice(bind.exwareHouseId, bind.deviceId))
 			})
@@ -303,16 +306,42 @@ func TestCreateExwarehouseArrive(t *testing.T) {
 
 type CreateInstallation struct {
 	CreateExwarehouseArrive
+	completeTime string
 }
 
 func (bind *CreateInstallation) Run(t *testing.T) {
 	bind.CreateExwarehouseArrive.Run(t)
 	pp("安装登记")
-	assertOk(adminApi.CreateInstallation(bind.applySn, bind.deviceId))
+	if bind.completeTime == "" {
+		bind.completeTime = time.Now().Format("2006-01-02 15:04:05")
+	}
+	assertOk(adminApi.CreateInstallation(bind.applySn, bind.deviceId, bind.completeTime))
 
 }
 func TestCreateInstallation(t *testing.T) {
 	convey.Convey("", t, func() { (&CreateInstallation{}).Run(t) })
+}
+func TestCreateMultiInstallation(t *testing.T) {
+	ins := CreateInstallation{}
+	tests := [][]string{
+		{"H4", "H4", "2023-01-31"},
+		{"H5", "H5", "2023-01-15"},
+		{"H6", "H6", "2023-01-20"},
+		{"H7", "H7", "2023-01-08"},
+		{"H8", "H8", "2023-01-08"},
+		{"H9", "H9", "2023-01-16"},
+		{"H10", "H10", "2023-03-02"},
+		{"H11", "H11", "2023-03-06"},
+		{"H12", "H12", "2023-03-06"},
+		{"H13", "H13", "2023-03-06"},
+		{"H14", "H14", "2023-03-06"},
+	}
+	for _, test := range tests {
+		ins.deviceId = test[0]
+		ins.locationName = test[1]
+		ins.completeTime = test[2]
+		convey.Convey("", t, func() { (&ins).Run(t) })
+	}
 }
 
 func TestClean(t *testing.T) {
@@ -412,26 +441,72 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		data = data[0:3]
 	}
 	dir := vc.MakeBatch(data)
-	pp("\n\n创建压缩文件...")
-	zipFilename := dir
-	zipFilename += ".zip"
-	/*z := archiver.Zip{
-		CompressionLevel:       flate.DefaultCompression,
-		MkdirAll:               true,
-		SelectiveCompression:   true,
-		ContinueOnError:        false,
-		OverwriteExisting:      true,
-		ImplicitTopLevelFolder: false,
+
+	if os.Getenv("VCH_EMP_ASSIGN") != "" {
+		//分配给每个运维人员各自的打印券数量
+		empStrs := strings.Split(os.Getenv("VCH_EMP_ASSIGN"), ",")
+		var emps [][]string
+		dir2 := dir + "/../" + name + "-运维分配"
+		for _, empStr := range empStrs {
+			emp := strings.Split(empStr, ":")
+			if len(emp) < 2 || emp[1] == "" || emp[1] == "0" {
+				continue
+			}
+			emp = append(emp, dir2+"/"+emp[0])
+			if _, err := os.Stat(emp[2]); err != nil {
+				os.MkdirAll(emp[2], 0755)
+			}
+			emps = append(emps, emp)
+
+		}
+		files, _ := os.ReadDir(dir)
+		empI := 0
+		empAssigns := 0
+		for fileI, file := range files {
+			if empAssigns < goutil.Int(emps[empI][1]) && fileI < len(files)-1 {
+				_, err := Copy(dir+"/"+file.Name(), emps[empI][2]+"/"+file.Name())
+				if err != nil {
+					panic(err)
+				}
+				os.Remove(dir + "/" + file.Name())
+				empAssigns++
+			} else {
+				if err := routine.Archive(emps[empI][2], emps[empI][2]+".zip"); err != nil {
+					panic(err)
+				}
+				empFiles, _ := os.ReadDir(emps[empI][2])
+				for _, empFile := range empFiles {
+					os.Remove(emps[empI][2] + "/" + empFile.Name())
+				}
+				os.Remove(emps[empI][2])
+				empAssigns = 0
+				empI++
+				if empI >= len(emps) {
+					break
+				}
+			}
+		}
+		pp("\n\n创建压缩文件...")
+		files, _ = os.ReadDir(dir)
+		if len(files) == 0 {
+			os.Remove(dir)
+		} else {
+			if err := routine.Archive(dir, dir+".zip"); err != nil {
+				panic(err)
+			}
+		}
+		if err := routine.Archive(dir2, dir2+".zip"); err != nil {
+			panic(err)
+		}
+		pp("创建完成,位置:" + dir)
+	} else {
+		pp("\n\n创建压缩文件...")
+		if err := routine.Archive(dir, dir+".zip"); err != nil {
+			panic(err)
+		}
+		pp("创建完成,位置:" + dir)
 	}
-	err := z.Archive([]string{dir}, zipFilename)
-	if err != nil {
-		panic(err)
-	}*/
-	err := routine.EncryptZip(dir, zipFilename, "1234")
-	if err != nil {
-		panic(err)
-	}
-	pp("创建完成,位置:" + zipFilename)
+
 }
 
 func TestCreatePrintTicketTemplate(t *testing.T) {

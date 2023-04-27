@@ -196,12 +196,13 @@ func (bind *AdminApi[T]) CreateLocation(name string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[partner_id]": os.Getenv("PARTNER_ID"),
 		"row[name]":       name,
-		"row[scene_picture][][file]": []string{
+		"row[scene_picture1111111][][file]": []string{
 			"https://i.328888.xyz/2023/01/08/kKzKA.th.png",
 			"https://i.328888.xyz/2023/01/08/kKFDo.th.png",
 			"https://i.328888.xyz/2023/01/08/kKG3N.th.png",
 			"https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		},
+		"row[scene_picture]":        "https://i.328888.xyz/2023/01/08/kKzKA.th.png,https://i.328888.xyz/2023/01/08/kKFDo.th.png,https://i.328888.xyz/2023/01/08/kKG3N.th.png,https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		"row[province]":             "39556",
 		"row[city]":                 "40160", //40852
 		"row[district]":             "40162",
@@ -439,10 +440,10 @@ ApproveExwarehouseArrive
 */
 func (bind *AdminApi[T]) ApproveExwarehouseArrive(id string) (*ApiRet, error) {
 	params := map[string]interface{}{
-		"ids":    id,
-		"params": "approve_status=1",
+		"row[approve_status]":  1,
+		"row[approve_remarks]": "测试",
 	}
-	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/multi/ids/%v", id), params)
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"exwarehouse_arrive/approve/ids/%v", id), params)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +480,7 @@ CreateInstallation
 @param applySn 点位号
 @param deviceId 设备号
 */
-func (bind *AdminApi[T]) CreateInstallation(applySn string, deviceId string) (*ApiRet, error) {
+func (bind *AdminApi[T]) CreateInstallation(applySn string, deviceId string, completeTime string) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[apply_sn]":                   applySn,
 		"row[device_id]":                  deviceId,
@@ -491,7 +492,7 @@ func (bind *AdminApi[T]) CreateInstallation(applySn string, deviceId string) (*A
 		"row[scene_picture][2][file]":     "https://i.328888.xyz/2023/01/08/kKG3N.th.png",
 		"row[scene_picture][3][file]":     "https://i.328888.xyz/2023/01/08/kKs1z.th.jpeg",
 		"row[status]":                     2,
-		"row[complete_time]":              time.Now().Format("2006-01-02 15:04:05"),
+		"row[complete_time]":              completeTime,
 		"row[power_number]":               666,
 		"row[power_picture]":              "https://i.328888.xyz/2023/01/08/kL4RH.th.jpeg",
 		"row[installor]":                  "Chen",

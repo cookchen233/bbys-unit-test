@@ -2,12 +2,27 @@ package routine
 
 import (
 	"archive/zip"
+	"compress/flate"
 	ezip "github.com/alexmullins/zip"
+	"github.com/mholt/archiver"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// Archive 压缩文件夹,新方法
+func Archive(dir, zipFilename string) error {
+	z := archiver.Zip{
+		CompressionLevel:       flate.DefaultCompression,
+		MkdirAll:               true,
+		SelectiveCompression:   true,
+		ContinueOnError:        false,
+		OverwriteExisting:      true,
+		ImplicitTopLevelFolder: false,
+	}
+	return z.Archive([]string{dir}, zipFilename)
+}
 
 // CompressPathToZip 压缩文件夹
 func CompressPathToZip(path, targetFile string) error {
