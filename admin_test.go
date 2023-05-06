@@ -625,7 +625,7 @@ func TestMakeBatchCashTicketByTplId(t *testing.T) {
 	})
 }
 
-func TestExecTempCrontab(t *testing.T) { //
+func TestExecTempCrontab(t *testing.T) {
 	convey.Convey("执行临时任务", t, func() {
 		url := os.Getenv("CRON_URL")
 		status := os.Getenv("CRON_STATUS")
