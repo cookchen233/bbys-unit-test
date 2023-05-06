@@ -8,7 +8,7 @@ import (
 	"github.com/gookit/goutil"
 	"github.com/gookit/goutil/mathutil"
 	"github.com/gookit/goutil/stdutil"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/smartystreets/goconvey/convey"
@@ -23,6 +23,15 @@ import (
 	"testing"
 	"time"
 )
+
+var adminApi *AdminApi[any]
+
+var adminDataError *AdminDataError
+
+func init() {
+	godotenv.Load("pro.env")
+	adminApi = NewAdminApi()
+}
 
 func TestFoo(t *testing.T) {
 	fmt.Println(getMacAddr())
@@ -107,10 +116,6 @@ func getMacAddr() string {
 //			testCaseList[name]().Run(t)
 //		}
 //	}
-
-var adminApi = NewAdminApi()
-
-var adminDataError *AdminDataError
 
 func pp(items ...interface{}) (written int, err error) {
 	convey.Println()

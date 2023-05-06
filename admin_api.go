@@ -44,6 +44,7 @@ type AdminApi[T any] struct {
 }
 
 func NewAdminApi() *AdminApi[any] {
+	fmt.Println(os.Getenv("BASE_URL"))
 	return &AdminApi[any]{
 		apiClient: NewApiClient(),
 		baseUrl:   os.Getenv("BASE_URL"),

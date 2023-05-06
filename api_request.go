@@ -39,7 +39,7 @@ func NewApiClient() *ApiClient {
 }
 
 func (bind *ApiClient) SetCookie(urlParse *url.URL, cookie *http.Cookie) error {
-	file, err := os.OpenFile("./results/chrome_default_cookie.json", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	file, err := os.OpenFile("./cookie.json", os.O_RDWR|os.O_CREATE, os.ModePerm)
 	defer file.Close()
 	if err != nil {
 		return errors.WithStack(err)
