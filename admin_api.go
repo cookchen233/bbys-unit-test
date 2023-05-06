@@ -721,7 +721,9 @@ func (bind *AdminApi[T]) GetPrintTicketList(filter string) (*ApiRet, error) {
 		return nil, err
 	}
 	return bind.toRet(resp, filter)
-} /*
+}
+
+/*
 GetCashPrintTicketList
 查询现金打印券列表
 @param filter 筛选
@@ -735,4 +737,27 @@ func (bind *AdminApi[T]) GetCashPrintTicketList(filter string) (*ApiRet, error) 
 		return nil, err
 	}
 	return bind.toRet(resp, filter)
+}
+
+/*
+ExecTempCrontab
+更新定时任务
+@param url 执行url
+*/
+func (bind *AdminApi[T]) ExecTempCrontab(url string, status string) (*ApiRet, error) {
+	execTime := time.Now()
+	if execTime.Second() > 50 {
+		ss, _ := time.ParseDuration("10s")
+		execTime = execTime.Add(ss)
+	}
+	params := map[string]interface{}{
+		"row[content]":  url,
+		"row[schedule]": execTime.Format("04") + " * * * *",
+		"row[status]":   status, //normal,hidden
+	}
+	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"general/crontab/edit/ids/%v", "160"), params)
+	if err != nil {
+		return nil, err
+	}
+	return bind.toRet(resp, url, status)
 }

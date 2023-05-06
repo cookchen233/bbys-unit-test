@@ -60,6 +60,7 @@ func (bind *Voucher) setBg(filename string) {
 func (bind *Voucher) MakeBatch(data []VoucherData) string {
 	saveDir := bind.SaveDir + dirSep + time.Now().Format("20060102"+dirSep+"")
 	dir := saveDir + strings.Replace(bind.Name, "/", "", -1)
+	os.RemoveAll(dir)
 	if _, err := os.Stat(dir); err != nil {
 		os.MkdirAll(dir, 0755)
 	}

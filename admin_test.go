@@ -447,12 +447,13 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		empStrs := strings.Split(os.Getenv("VCH_EMP_ASSIGN"), ",")
 		var emps [][]string
 		dir2 := dir + "/../" + name + "-运维分配"
+		os.RemoveAll(dir2)
 		for _, empStr := range empStrs {
 			emp := strings.Split(empStr, ":")
 			if len(emp) < 2 || emp[1] == "" || emp[1] == "0" {
 				continue
 			}
-			emp = append(emp, dir2+"/"+emp[0])
+			emp = append(emp, dir2+"/"+name+"-"+emp[0])
 			if _, err := os.Stat(emp[2]); err != nil {
 				os.MkdirAll(emp[2], 0755)
 			}
@@ -468,7 +469,7 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 				if err != nil {
 					panic(err)
 				}
-				os.Remove(dir + "/" + file.Name())
+				os.RemoveAll(dir + "/" + file.Name())
 				empAssigns++
 			} else {
 				if err := routine.Archive(emps[empI][2], emps[empI][2]+".zip"); err != nil {
@@ -476,9 +477,9 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 				}
 				empFiles, _ := os.ReadDir(emps[empI][2])
 				for _, empFile := range empFiles {
-					os.Remove(emps[empI][2] + "/" + empFile.Name())
+					os.RemoveAll(emps[empI][2] + "/" + empFile.Name())
 				}
-				os.Remove(emps[empI][2])
+				os.RemoveAll(emps[empI][2])
 				empAssigns = 0
 				empI++
 				if empI >= len(emps) {
@@ -489,7 +490,7 @@ func makeBatchTicket(name string, data []routine.VoucherData) {
 		pp("\n\n创建压缩文件...")
 		files, _ = os.ReadDir(dir)
 		if len(files) == 0 {
-			os.Remove(dir)
+			os.RemoveAll(dir)
 		} else {
 			if err := routine.Archive(dir, dir+".zip"); err != nil {
 				panic(err)
@@ -621,5 +622,14 @@ func TestMakeBatchCashTicketByTplId(t *testing.T) {
 		t := time.Now()
 		makeBatchTicket(ticketTemplate.Get("coupon_name").String(), data)
 		pp(fmt.Sprintf("耗时: %.2fs", time.Now().Sub(t).Seconds()))
+	})
+}
+
+func TestExecTempCrontab(t *testing.T) {
+	convey.Convey("执行临时定时任务", t, func() {
+		url := os.Getenv("CRON_URL")
+		status := os.Getenv("CRON_STATUS")
+		pp(fmt.Sprintf("%v %v", status, url))
+		assertOk(adminApi.ExecTempCrontab(url, status))
 	})
 }
