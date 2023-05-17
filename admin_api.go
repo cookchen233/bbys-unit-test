@@ -44,7 +44,6 @@ type AdminApi[T any] struct {
 }
 
 func NewAdminApi() *AdminApi[any] {
-	fmt.Println(os.Getenv("BASE_URL"))
 	return &AdminApi[any]{
 		apiClient: NewApiClient(),
 		baseUrl:   os.Getenv("BASE_URL"),
@@ -745,20 +744,16 @@ ExecTempCrontab
 更新定时任务
 @param url 执行url
 */
-func (bind *AdminApi[T]) ExecTempCrontab(url string, status string) (*ApiRet, error) {
-	execTime := time.Now()
-	if execTime.Second() > 50 {
-		ss, _ := time.ParseDuration("10s")
-		execTime = execTime.Add(ss)
-	}
+func (bind *AdminApi[T]) ExecTempCrontab(url string, execTime time.Time, endTime time.Time) (*ApiRet, error) {
 	params := map[string]interface{}{
 		"row[content]":  url,
 		"row[schedule]": execTime.Format("04") + " * * * *",
-		"row[status]":   status, //normal,hidden
+		"row[status]":   "normal",
+		"row[endtime]":  endTime.Format("2006-01-02 15:04:05"),
 	}
 	resp, err := bind.apiClient.Post(fmt.Sprintf(bind.baseUrl+"general/crontab/edit/ids/%v", "160"), params)
 	if err != nil {
 		return nil, err
 	}
-	return bind.toRet(resp, url, status)
+	return bind.toRet(resp, url, execTime, endTime)
 }
